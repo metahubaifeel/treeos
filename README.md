@@ -1,5 +1,7 @@
 # TreeOS
 
+English | [简体中文](README.zh-CN.md)
+
 **A mainline Linux system for the R36S handheld.** Linux 6.12, Debian 13, open panfrost GPU driver, our own DSI panel driver — built so the device can follow upstream instead of being pinned to a 2016 vendor kernel.
 
 ![R36S handheld running TreeOS](assets/r36s-black-front-display.webp)
