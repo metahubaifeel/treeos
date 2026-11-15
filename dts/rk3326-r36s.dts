@@ -1,0 +1,377 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * TreeOS — GameConsole R36S (Rockchip RK3326)
+ *
+ * 基线：mainline v6.12 arch/arm64/boot/dts/rockchip/rk3326-odroid-go.dtsi
+ * 参数来源：本机厂商 dtb（rk3326-r36s-panel4-type2-linux.dtb）反编译实测
+ *
+ * 已验证的硬件事实：
+ *   - 按键/摇杆走线与 ODROID-GO Super 完全一致（gpio1/gpio2/gpio3 同引脚）
+ *   - 面板是 simple-panel-dsi + ST7701S 类初始化序列，4 lane，640x480
+ *   - 音频 rk817-codec，耳机检测 GPIO2_C6（低有效）
+ *   - 背光 pwm1，周期 62745ns（≈15.9kHz）
+ *   - WiFi RTL8188EU 挂在 OTG 口（usb@ff300000）的内部 hub 上
+ *
+ * 还差一件事才能开机：面板驱动（见文件末尾 PANEL 段）
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
+#include <dt-bindings/leds/common.h>
+#include <dt-bindings/pinctrl/rockchip.h>
+#include "rk3326-odroid-go.dtsi"
+
+/ {
+	model = "GameConsole R36S";
+	compatible = "rockchip,rk3326-r36s", "rockchip,rk3326";
+};
+
+/* ---------------------------------------------------------------- 背光 */
+/* 厂商值：pwms = <&pwm1 0 62745 0>，默认亮度 51/160 */
+&backlight {
+	power-supply = <&vcc_bl>;
+	pwms = <&pwm1 0 62745 0>;
+	brightness-levels = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
+			     16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+			     32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47
+			     48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63
+			     64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79
+			     80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95
+			     96 97 98 99 100 101 102 103 104 105 106 107 108 109 110 111
+			     112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127
+			     128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143
+			     144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159
+			     160>;
+	default-brightness-level = <51>;
+};
+
+/* ---------------------------------------------------------------- 面板 */
+/*
+ * PANEL —— 这是 K2 唯一还缺的一块
+ *
+ * 厂商：compatible = "simple-panel-dsi"，mainline 的 panel-simple **不认**这个
+ * compatible（dsi_of_match 里只有 7 个具体面板型号），而且 mainline 的
+ * panel-simple / dw-mipi-dsi-rockchip **都不解析 panel-init-sequence**。
+ *
+ * 所以面板必须靠驱动补丁，而不是改 dts。见 dts/README.md「面板补丁」。
+ * 补丁做好后，把下面的 compatible 换成对应型号即可，其余参数已经全部备好。
+ */
+&internal_display {
+	compatible = "rockchip,r36s-panel";	/* 配 dts/panel-r36s.c */
+	backlight = <&backlight>;
+	reset-gpios = <&gpio3 RK_PC0 GPIO_ACTIVE_HIGH>;
+	IOVCC-supply = <&vcc_lcd>;
+	VCC-supply = <&vcc_lcd>;
+	width-mm = <52>;
+	height-mm = <70>;
+
+	/* dtsi 给 go3 的面板设了 270°；R36S 原生 640x480 横向，必须清零 */
+	rotation = <0>;
+};
+
+&dsi {
+	/* 4 data lane，RGB888，video mode；厂商 dsi,flags = 0x0a03 */
+	status = "okay";
+};
+
+&dsi_dphy {
+	status = "okay";
+};
+
+/* ---------------------------------------------------------------- 按键 */
+/*
+ * 与 go3 的差别（全部来自厂商 dtb）：
+ *   - Select / Start 在本机是 BTN_TRIGGER_HAPPY1/2（704/705），不是 BTN_SELECT/START
+ *   - GPIO2_PA2/PA3 = 右/左摇杆按下（706/707），GPIO2_PA4 = 第 5 个功能键（708）
+ *   - GPIO2_PA5 空
+ */
+
+/* 被音量键占用 */
+/delete-node/ &btn_f1;		/* GPIO2_PA0 = 音量+ */
+/delete-node/ &btn_f2;		/* GPIO2_PA1 = 音量- */
+
+&btn_f3 {			/* GPIO2_PA2 */
+	label = "BTN_THUMBR";
+	linux,code = <BTN_TRIGGER_HAPPY3>;	/* 706 */
+};
+
+&btn_f4 {			/* GPIO2_PA3 */
+	label = "BTN_THUMBL";
+	linux,code = <BTN_TRIGGER_HAPPY4>;	/* 707 */
+};
+
+&btn_f5 {			/* GPIO2_PA4 */
+	label = "BTN_F5";
+	linux,code = <BTN_TRIGGER_HAPPY5>;	/* 708 */
+};
+
+/delete-node/ &btn_f6;		/* GPIO2_PA5 未使用 */
+
+&builtin_gamepad {
+	pinctrl-names = "default";
+	pinctrl-0 = <&btn_pins &btn_pins_extra>;
+
+	button-sw19 {
+		gpios = <&gpio3 RK_PB1 GPIO_ACTIVE_LOW>;
+		label = "SELECT";
+		linux,code = <BTN_TRIGGER_HAPPY1>;	/* 704 */
+	};
+	/* TR2 / TL2 在这块板子上和 go3 一样是反的 */
+	button-sw20 {
+		gpios = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
+		label = "TOP-RIGHT 2";
+		linux,code = <BTN_TR2>;
+	};
+	button-sw21 {
+		gpios = <&gpio3 RK_PB2 GPIO_ACTIVE_LOW>;
+		label = "TOP-LEFT 2";
+		linux,code = <BTN_TL2>;
+	};
+	button-sw22 {
+		gpios = <&gpio3 RK_PB4 GPIO_ACTIVE_LOW>;
+		label = "START";
+		linux,code = <BTN_TRIGGER_HAPPY2>;	/* 705 */
+	};
+};
+
+/* 音量键：GPIO2_PA0 / PA1，低有效 */
+/ {
+	gpio-keys-vol {
+		compatible = "gpio-keys";
+		autorepeat;
+		/* 引脚已由 btn_pins 配成 GPIO，这里不要再申请一次，否则
+		 * rockchip-pinctrl 会报 "could not request pin 64" */
+
+		button-vol-down {
+			gpios = <&gpio2 RK_PA1 GPIO_ACTIVE_LOW>;
+			label = "VOLUMEDOWN";
+			linux,code = <KEY_VOLUMEDOWN>;
+		};
+
+		button-volume-up {
+			gpios = <&gpio2 RK_PA0 GPIO_ACTIVE_LOW>;
+			label = "VOLUMEUP";
+			linux,code = <KEY_VOLUMEUP>;
+		};
+	};
+};
+
+/* ---------------------------------------------------------------- 摇杆 */
+/* 走线与 go3 相同：saradc ch1 + GPIO3 PB3/PB0 复用，PB5 使能 */
+/ {
+	joystick_mux_controller: mux-controller {
+		compatible = "gpio-mux";
+		pinctrl-names = "default";
+		pinctrl-0 = <&mux_en_pins>;
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&gpio3 RK_PB3 GPIO_ACTIVE_LOW>,
+			    <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
+	};
+
+	joystick_mux: adc-mux {
+		compatible = "io-channel-mux";
+		io-channels = <&saradc 1>;
+		io-channel-names = "parent";
+		#io-channel-cells = <1>;
+
+		mux-controls = <&joystick_mux_controller>;
+		channels = "0", "1", "2", "3";
+	};
+
+	analog_sticks: adc-joystick {
+		compatible = "adc-joystick";
+		io-channels = <&joystick_mux 0>,
+			      <&joystick_mux 1>,
+			      <&joystick_mux 2>,
+			      <&joystick_mux 3>;
+		poll-interval = <60>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* 厂商标定：scale=2 deadzone=64 fuzz=32 flat=32 max-step=225 */
+
+		axis@0 {
+			reg = <0>;
+			abs-flat = <10>;
+			abs-fuzz = <10>;
+			abs-range = <180 800>;
+			linux,code = <ABS_X>;
+		};
+
+		axis@1 {
+			reg = <1>;
+			abs-flat = <10>;
+			abs-fuzz = <10>;
+			abs-range = <180 800>;
+			linux,code = <ABS_RX>;
+		};
+
+		axis@2 {
+			reg = <2>;
+			abs-flat = <10>;
+			abs-fuzz = <10>;
+			abs-range = <180 800>;
+			linux,code = <ABS_Y>;
+		};
+
+		axis@3 {
+			reg = <3>;
+			abs-flat = <10>;
+			abs-fuzz = <10>;
+			abs-range = <180 800>;
+			linux,code = <ABS_RY>;
+		};
+	};
+};
+
+/* ---------------------------------------------------------------- 音频 */
+/*
+ * 厂商：hp-det-gpio = GPIO2_C6，ACTIVE_LOW，并且带 simple-audio-card,codec-hp-det
+ * go3 用的是 ACTIVE_HIGH。这里按厂商 dtb 取低有效——**上机第一件事就是插耳机验证**。
+ */
+
+/* codec 子节点要能被 sound-dai 引用，必须声明 #sound-dai-cells */
+&rk817_codec {
+	compatible = "rockchip,rk817-codec";
+	#sound-dai-cells = <0>;
+};
+
+/ {
+	rk817-sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "rockchip,rk817-codec";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,mclk-fs = <256>;
+		simple-audio-card,hp-det-gpio = <&gpio2 RK_PC6 GPIO_ACTIVE_LOW>;
+		/* 名字必须与 rk817 codec 的 DAPM 引脚一致：
+		 * MICL/MICR、HPOL/HPOR、SPKO */
+		simple-audio-card,widgets =
+			"Microphone", "Mic Jack",
+			"Headphone", "Headphones",
+			"Speaker", "Speaker";
+		simple-audio-card,routing =
+			"MICL", "Mic Jack",
+			"Headphones", "HPOL",
+			"Headphones", "HPOR",
+			"Speaker", "SPKO";
+
+		/* 厂商 DT 指向 codec 子节点，不是 PMIC 本身 */
+		simple-audio-card,codec {
+			sound-dai = <&rk817_codec>;
+		};
+
+		simple-audio-card,cpu {
+			sound-dai = <&i2s1_2ch>;
+		};
+	};
+};
+
+/* ---------------------------------------------------------------- 电池 */
+/*
+ * 厂商 dtb 没有 simple-battery（用的是私有充电动画节点）。
+ * 先按 go3 的 4Ah 曲线占位，**必须按实物电池标定**，否则电量显示不准。
+ */
+&rk817_charger {
+	monitored-battery = <&battery>;
+};
+
+/ {
+	battery: battery {
+		compatible = "simple-battery";
+		charge-full-design-microamp-hours = <4000000>;
+		charge-term-current-microamp = <300000>;
+		constant-charge-current-max-microamp = <2000000>;
+		constant-charge-voltage-max-microvolt = <4200000>;
+		factory-internal-resistance-micro-ohms = <180000>;
+		voltage-max-design-microvolt = <4100000>;
+		voltage-min-design-microvolt = <3500000>;
+
+		ocv-capacity-celsius = <20>;
+		ocv-capacity-table-0 = <4046950 100>, <4001920 95>, <3967900 90>, <3919950 85>,
+					<3888450 80>, <3861850 75>, <3831540 70>, <3799130 65>,
+					<3768190 60>, <3745650 55>, <3726610 50>, <3711630 45>,
+					<3696720 40>, <3685660 35>, <3674950 30>, <3663050 25>,
+					<3649470 20>, <3635260 15>, <3616920 10>, <3592440 5>,
+					<3574170 0>;
+	};
+};
+
+/* ---------------------------------------------------------------- USB / WiFi */
+/*
+ * RTL8188EU 挂在 OTG 控制器（usb@ff300000）的内部 hub 上（1a40:0101）。
+ * dtsi 里 OTG 口是关的，这里打开；vcc_host（GPIO0_B7）已在 dtsi 里配好。
+ * 驱动是外挂 rtl8188eu（DKMS），不是内核自带的 rtl8xxxu。
+ */
+&u2phy_otg {
+	status = "okay";
+};
+
+&usb20_otg {
+	status = "okay";
+	dr_mode = "otg";
+};
+
+/* ---------------------------------------------------------------- 存储 */
+/* 实测：SD 卡挂在 ff370000（mmc0 = &sdmmc），sdio(ff380000) 空，emmc 无 */
+&sdmmc {
+	card-detect-delay = <800>;
+};
+
+/* R36S 没有 SPI NOR，dtsi 默认开着，关掉避免无谓报错 */
+&sfc {
+	status = "disabled";
+};
+
+
+/* ---------------------------------------------------------------- 状态灯 */
+/*
+ * 诊断用：厂商 LED 在 GPIO2_B5（arkos4clone-led 驱动里的 led-gpio）。
+ * mainline 没有那个私有驱动，这里用标准 gpio-leds + heartbeat，
+ * 内核一旦跑起来就开始闪 —— 这是没有串口时最可靠的"活没活"信号。
+ */
+/ {
+	leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&status_led_pin>;
+
+		status_led: led {
+			gpios = <&gpio2 RK_PB5 GPIO_ACTIVE_HIGH>;
+			/* 诊断期可用 heartbeat 看内核活没活；日常关掉，晚上太亮 */
+			linux,default-trigger = "none";
+			default-state = "off";
+		};
+	};
+};
+
+/* ---------------------------------------------------------------- pinctrl */
+&pinctrl {
+	btns {
+		btn_pins_vol: btn-pins-vol {
+			rockchip,pins = <2 RK_PA0 RK_FUNC_GPIO &pcfg_pull_up>,
+					<2 RK_PA1 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+
+		btn_pins_extra: btn-pins-extra {
+			rockchip,pins = <3 RK_PB1 RK_FUNC_GPIO &pcfg_pull_up>,
+					<3 RK_PB2 RK_FUNC_GPIO &pcfg_pull_up>,
+					<3 RK_PB4 RK_FUNC_GPIO &pcfg_pull_up>,
+					<3 RK_PB7 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+	};
+
+	leds {
+		status_led_pin: status-led-pin {
+			rockchip,pins = <2 RK_PB5 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
+	joystick {
+		mux_en_pins: mux-pins {
+			rockchip,pins = <3 RK_PB5 RK_FUNC_GPIO &pcfg_output_low>;
+		};
+	};
+};

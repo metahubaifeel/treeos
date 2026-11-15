@@ -1,0 +1,6 @@
+*.img
+*.img.gz
+*.tgz
+.build/
+.backup/
+node_modules/
