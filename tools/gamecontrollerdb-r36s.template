@@ -1,0 +1,19 @@
+# R36S / TreeOS 合并手柄映射（2026-11-17 实测，可直接使用）
+# 设备：r36s_Gamepad，Debian 6.12 + odroidgo3-joypad
+# Bus=0x19 Vendor=0x0001 Product=0x1188 Version=0x0188，event1
+# 轴范围：ABS_X/Y/RX/RY = -1800..1800（驱动已归一化，fuzz=32）
+#
+# 放到 /roms/tools/PortMaster/gamecontrollerdb.txt 末尾（或对应路径）。
+# SDL 内置映射已能识别（is_gc=1），这一行主要用于覆盖/锁定行为。
+
+19003982010000008811000088010000,r36s_Gamepad,a:b0,b:b1,x:b2,y:b3,back:b8,guide:b10,start:b9,leftstick:b11,rightstick:b12,leftshoulder:b4,rightshoulder:b5,dpup:b13,dpdown:b14,dpleft:b15,dpright:b16,leftx:a0,lefty:a1,rightx:a2,righty:a3,lefttrigger:b6,righttrigger:b7,platform:Linux,
+
+# 说明：
+# - Ruffle 的 mouse_stick=left 会由 rh_route_mouse_stick 把 leftx/lefty 改写为 rightx/righty，
+#   所以profile 里写 left，实际就是「物理左摇杆移动鼠标」。
+# - 若日志出现 "Mouse stick: left" 但光标不动，先确认 Ruffle 加载的 controller DB
+#   没有被覆盖成不含本 GUID 的旧文件。
+# - A 点击若无效，用 gptk 注入兜底：
+#     dpad = mouse_movement
+#     a = mouse_left
+#   （gptokeyb2 只认聚合写法，四个方向 mouse_movement_* 会报 unknown key）

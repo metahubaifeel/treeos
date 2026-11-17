@@ -48,6 +48,10 @@ other board revisions, OTA, and full Flash playability (per-game validation ongo
 - Ruffle recompilation project: `docs/19_Ruffle重编译项目.md`
 - Multi-SoC and ports compatibility review: `docs/08_外部评审-OldBits与多SoC-gpt6luna.md`
 
+- Flash project overview and boundaries: `docs/20_Flash工程总览.md`
+- Classic web-game classification: `docs/21_经典页游分类.md`
+- Tools and mapping examples: `tools/`
+
 ## Repository layout
 
 ```
