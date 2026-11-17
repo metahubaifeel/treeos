@@ -29,7 +29,8 @@ TreeOS 换掉地基：
   ADC 摇杆 + GPIO 按键合并成一个 `r36s_Gamepad`（ABS ±1800、17 个标准键），
   ES / RetroArch 直接可用，不再需要用户态 `padmerge` 桥
 - RetroArch 1.20：GBA 默认 `mgba`（本机 `gpsp` 核心启动即退出，已记录）
-- Flash：Ruffle native 运行时；20 个样本可启动并存活 20 秒（无 OOM/panic），
+- Flash：Ruffle native 运行时；20 个样本可启动并存活 20 秒（无 OOM/panic）；
+  《死神 vs 火影》已实测进入对战并可操作（不承诺长时间稳定）；
   逐游戏 profile 机制与鼠标点击为实验性
 - zram、WiFi、21 张开机轮播图
 - 16 GiB 可刷写镜像已构建（新卡验收进行中）

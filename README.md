@@ -30,6 +30,7 @@ TreeOS replaces the base:
   (ABS ±1800, 17 standard keys); ES and RetroArch use it directly, no userspace bridge
 - RetroArch 1.20: GBA defaults to `mgba` (the `gpsp` core exits immediately on this unit)
 - Flash: Ruffle native runtime; 20 samples launch and survive 20 seconds with no OOM/panic.
+  Bleach vs Naruto reaches actual combat and is playable (no long-run stability claim yet).
   Per-game profiles and mouse click are experimental
 - zram swap, WiFi, 21 rotating boot images
 - A 16 GiB flashable image has been built (acceptance on a fresh card in progress)
