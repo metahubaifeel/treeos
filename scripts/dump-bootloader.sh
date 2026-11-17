@@ -1,7 +1,7 @@
 #!/bin/bash
 # 从母卡导出前 16MB（Rockchip 引导程序区），供重做镜像使用
 set -euo pipefail
-OUT=/home/amd/下载/r36s/.build/out
+OUT=${TREEOS_ROOT:-$HOME/r36s}/.build/out
 DEV=${1:-/dev/sda}
 [ -b "$DEV" ] || { echo "不是块设备: $DEV"; exit 1; }
 mkdir -p "$OUT"

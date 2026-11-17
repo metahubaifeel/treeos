@@ -10,7 +10,7 @@
 # ============================================================
 set -euo pipefail
 
-D=/home/amd/下载/r36s/.build/out
+D=${TREEOS_ROOT:-$HOME/r36s}/.build/out
 IMG=/tmp/treeos-v3.img
 BOOTLOADER="$D/bootloader-16m.bin"
 ROOTFS=/tmp/rootfs-v3.tgz

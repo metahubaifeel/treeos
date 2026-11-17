@@ -69,7 +69,7 @@ chroot "$ROOT" bash -c '
 	fi
 	for g in adm audio video input; do adduser tree "$g" >/dev/null 2>&1 || true; done
 	adduser tree sudo >/dev/null 2>&1 || true
-	echo "tree:tree" | chpasswd
+	echo "tree:${TREEOS_PASSWORD:-tree}" | chpasswd
 	echo "root:tree" | chpasswd
 	# ArkOS 的老脚本到处写死 /home/ark，留个软链接兼容
 	[ -e /home/tree ] && ln -sfn /home/tree /home/ark

@@ -1,0 +1,291 @@
+--- a/drivers/input/joystick/odroidgo3-joypad.c
++++ b/drivers/input/joystick/odroidgo3-joypad.c
+@@ -26,7 +26,6 @@
+ #include <linux/module.h>
+ #include <linux/slab.h>
+ #include <linux/input.h>
+-#include <linux/input-polldev.h>
+ #include <linux/ioport.h>
+ #include <linux/platform_device.h>
+ #include <linux/gpio.h>
+@@ -35,13 +34,34 @@
+ #include <linux/iio/consumer.h>
+ #include <linux/iio/types.h>
+ #include <linux/property.h>
+-#include <linux/of_gpio_legacy.h>
++#include <linux/of_gpio.h>
+ #include <linux/delay.h>
+ 
+ /*----------------------------------------------------------------------------*/
+ #define DRV_NAME "odroidgo3_joypad"
+ 
+ /*----------------------------------------------------------------------------*/
++/*
++ * mainline 6.12 removed of_get_named_gpio_flags()/enum of_gpio_flags;
++ * read the specifier flags ourselves and return the legacy gpio number.
++ */
++static int joypad_of_get_gpio(const struct device_node *np, const char *name,
++			      unsigned int *flags)
++{
++	struct of_phandle_args args;
++	int ret;
++
++	ret = of_parse_phandle_with_args(np, name, "#gpio-cells", 0, &args);
++	if (ret)
++		return ret;
++
++	*flags = (args.args_count > 1) ? args.args[1] : 0;
++	of_node_put(args.np);
++
++	return of_get_named_gpio(np, name, 0);
++}
++
++/*----------------------------------------------------------------------------*/
+ #define	ADC_MAX_VOLTAGE		1800
+ #define	ADC_DATA_TUNING(x, p)	((x * p) / 100)
+ #define	ADC_TUNING_DEFAULT	180
+@@ -111,6 +131,8 @@
+ struct joypad {
+ 	struct device *dev;
+ 	int poll_interval;
++	int poll_interval_applied;
++	struct input_dev *input;
+ 
+ 	/* report enable/disable */
+ 	bool enable;
+@@ -512,9 +534,9 @@
+ 
+ /*----------------------------------------------------------------------------*/
+ /*----------------------------------------------------------------------------*/
+-static void joypad_gpio_check(struct input_polled_dev *poll_dev)
++static void joypad_gpio_check(struct joypad *joypad)
+ {
+-	struct joypad *joypad = poll_dev->private;
++	struct input_dev *input = joypad->input;
+ 	int nbtn, value;
+ 
+ 	for (nbtn = 0; nbtn < joypad->bt_gpio_count; nbtn++) {
+@@ -526,20 +548,20 @@
+ 		}
+ 		value = gpio_get_value(gpio->num);
+ 		if (value != gpio->old_value) {
+-			input_event(poll_dev->input,
++			input_event(input,
+ 				gpio->report_type,
+ 				gpio->linux_code,
+ 				(value == gpio->active_level) ? 1 : 0);
+ 			gpio->old_value = value;
+ 		}
+ 	}
+-	input_sync(poll_dev->input);
++	input_sync(input);
+ }
+ 
+ /*----------------------------------------------------------------------------*/
+-static void joypad_adc_check(struct input_polled_dev *poll_dev)
++static void joypad_adc_check(struct joypad *joypad)
+ {
+-	struct joypad *joypad = poll_dev->private;
++	struct input_dev *input = joypad->input;
+ 	int nbtn;
+ 
+ 	for (nbtn = 0; nbtn < joypad->amux_count; nbtn++) {
+@@ -568,33 +590,34 @@
+ 		adc->value = adc->value > adc->max ? adc->max : adc->value;
+ 		adc->value = adc->value < adc->min ? adc->min : adc->value;
+ 
+-		input_report_abs(poll_dev->input,
++		input_report_abs(input,
+ 			adc->report_type,
+ 			adc->invert ? adc->value * (-1) : adc->value);
+ 	}
+-	input_sync(poll_dev->input);
++	input_sync(input);
+ }
+ 
+ /*----------------------------------------------------------------------------*/
+-static void joypad_poll(struct input_polled_dev *poll_dev)
++static void joypad_poll(struct input_dev *input)
+ {
+-	struct joypad *joypad = poll_dev->private;
++	struct joypad *joypad = input_get_drvdata(input);
+ 
+ 	if (joypad->enable) {
+-		joypad_adc_check(poll_dev);
+-		joypad_gpio_check(poll_dev);
++		joypad_adc_check(joypad);
++		joypad_gpio_check(joypad);
+ 	}
+-	if (poll_dev->poll_interval != joypad->poll_interval) {
++	if (joypad->poll_interval_applied != joypad->poll_interval) {
+ 		mutex_lock(&joypad->lock);
+-		poll_dev->poll_interval = joypad->poll_interval;
++		joypad->poll_interval_applied = joypad->poll_interval;
++		input_set_poll_interval(input, joypad->poll_interval);
+ 		mutex_unlock(&joypad->lock);
+ 	}
+ }
+ 
+ /*----------------------------------------------------------------------------*/
+-static void joypad_open(struct input_polled_dev *poll_dev)
++static int joypad_open(struct input_dev *input)
+ {
+-	struct joypad *joypad = poll_dev->private;
++	struct joypad *joypad = input_get_drvdata(input);
+ 	int nbtn;
+ 
+ 	for (nbtn = 0; nbtn < joypad->bt_gpio_count; nbtn++) {
+@@ -615,8 +638,8 @@
+ 			__func__, nbtn, adc->cal);
+ 	}
+ 	/* buttons status sync */
+-	joypad_adc_check(poll_dev);
+-	joypad_gpio_check(poll_dev);
++	joypad_adc_check(joypad);
++	joypad_gpio_check(joypad);
+ 
+ 	/* button report enable */
+ 	mutex_lock(&joypad->lock);
+@@ -624,12 +647,13 @@
+ 	mutex_unlock(&joypad->lock);
+ 
+ 	dev_info(joypad->dev, "%s : opened\n", __func__);
++	return 0;
+ }
+ 
+ /*----------------------------------------------------------------------------*/
+-static void joypad_close(struct input_polled_dev *poll_dev)
++static void joypad_close(struct input_dev *input)
+ {
+-	struct joypad *joypad = poll_dev->private;
++	struct joypad *joypad = input_get_drvdata(input);
+ 
+ 	/* button report disable */
+ 	mutex_lock(&joypad->lock);
+@@ -644,7 +668,7 @@
+ {
+ 	struct analog_mux *amux;
+ 	enum iio_chan_type type;
+-	enum of_gpio_flags flags;
++	unsigned int flags;
+ 	int ret;
+ 
+ 	/* analog mux control struct init */
+@@ -671,8 +695,8 @@
+ 		return -EINVAL;
+ 	}
+ 
+-	amux->sel_a_gpio = of_get_named_gpio_flags(dev->of_node,
+-				"amux-a-gpios", 0, &flags);
++	amux->sel_a_gpio = joypad_of_get_gpio(dev->of_node,
++				"amux-a-gpios", &flags);
+ 	if (gpio_is_valid(amux->sel_a_gpio)) {
+ 		ret = devm_gpio_request(dev, amux->sel_a_gpio, "amux-sel-a");
+ 		if (ret < 0) {
+@@ -685,8 +709,8 @@
+ 			goto err_out;
+ 	}
+ 
+-	amux->sel_b_gpio = of_get_named_gpio_flags(dev->of_node,
+-				"amux-b-gpios", 0, &flags);
++	amux->sel_b_gpio = joypad_of_get_gpio(dev->of_node,
++				"amux-b-gpios", &flags);
+ 	if (gpio_is_valid(amux->sel_b_gpio)) {
+ 		ret = devm_gpio_request(dev, amux->sel_b_gpio, "amux-sel-b");
+ 		if (ret < 0) {
+@@ -699,8 +723,8 @@
+ 			goto err_out;
+ 	}
+ 
+-	amux->en_gpio = of_get_named_gpio_flags(dev->of_node,
+-				"amux-en-gpios", 0, &flags);
++	amux->en_gpio = joypad_of_get_gpio(dev->of_node,
++				"amux-en-gpios", &flags);
+ 	if (gpio_is_valid(amux->en_gpio)) {
+ 		ret = devm_gpio_request(dev, amux->en_gpio, "amux-en");
+ 		if (ret < 0) {
+@@ -826,11 +850,11 @@
+ 
+ 	nbtn = 0;
+ 	for_each_child_of_node(node, pp) {
+-		enum of_gpio_flags flags;
++		unsigned int flags;
+ 		struct bt_gpio *gpio = &joypad->gpios[nbtn++];
+ 		int error;
+ 
+-		gpio->num = of_get_gpio_flags(pp, 0, &flags);
++		gpio->num = joypad_of_get_gpio(pp, "gpios", &flags);
+ 		if (gpio->num < 0) {
+ 			error = gpio->num;
+ 			dev_err(dev, "Failed to get gpio flags, error: %d\n",
+@@ -839,7 +863,7 @@
+ 		}
+ 
+ 		/* gpio active level(key press level) */
+-		gpio->active_level = (flags & OF_GPIO_ACTIVE_LOW) ? 0 : 1;
++		gpio->active_level = (flags & 1) ? 0 : 1; /* GPIO_ACTIVE_LOW */
+ 
+ 		gpio->label = of_get_property(pp, "label", NULL);
+ 
+@@ -871,25 +895,22 @@
+ /*----------------------------------------------------------------------------*/
+ static int joypad_input_setup(struct device *dev, struct joypad *joypad)
+ {
+-	struct input_polled_dev *poll_dev;
+ 	struct input_dev *input;
+ 	int nbtn, error;
+ 	u32 joypad_revision = 0;
+ 	u32 joypad_product = 0;
+ 
+-	poll_dev = devm_input_allocate_polled_device(dev);
+-	if (!poll_dev) {
+-		dev_err(dev, "no memory for polled device\n");
++	input = devm_input_allocate_device(dev);
++	if (!input) {
++		dev_err(dev, "no memory for input device\n");
+ 		return -ENOMEM;
+ 	}
+ 
+-	poll_dev->private	= joypad;
+-	poll_dev->poll		= joypad_poll;
+-	poll_dev->poll_interval	= joypad->poll_interval;
+-	poll_dev->open		= joypad_open;
+-	poll_dev->close		= joypad_close;
++	input_set_drvdata(input, joypad);
++	joypad->input = input;
+ 
+-	input = poll_dev->input;
++	input->open  = joypad_open;
++	input->close = joypad_close;
+ 
+ 	device_property_read_string(dev, "joypad-name", &input->name);
+ 	input->phys = DRV_NAME"/input0";
+@@ -933,9 +954,17 @@
+ 
+ 	joypad->dev = dev;
+ 
+-	error = input_register_polled_device(poll_dev);
++	error = input_setup_polling(input, joypad_poll);
++	if (error) {
++		dev_err(dev, "unable to setup polling, err=%d\n", error);
++		return error;
++	}
++	input_set_poll_interval(input, joypad->poll_interval);
++	joypad->poll_interval_applied = joypad->poll_interval;
++
++	error = input_register_device(input);
+ 	if (error) {
+-		dev_err(dev, "unable to register polled device, err=%d\n",
++		dev_err(dev, "unable to register input device, err=%d\n",
+ 			error);
+ 		return error;
+ 	}
+@@ -1053,7 +1082,7 @@
+ 	mutex_init(&joypad->lock);
+ 	platform_set_drvdata(pdev, joypad);
+ 
+-	error = sysfs_create_group(&pdev->dev.kobj, &joypad_attr_group);
++	error = devm_device_add_group(dev, &joypad_attr_group);
+ 	if (error) {
+ 		dev_err(dev, "create sysfs group fail, error: %d\n",
+ 			error);

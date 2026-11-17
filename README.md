@@ -25,20 +25,26 @@ TreeOS replaces the base:
 
 - Boots to a Chinese EmulationStation menu on the R36S panel
 - Audio: speaker, headphones, automatic switching
-- Buttons, d-pad, analog stick (stick acts as d-pad), Select+Start exit
-- GBA games run through the `gpsp` libretro core; saves load and save
+- **Merged gamepad at the kernel layer** — `odroidgo3-joypad` (GPL-2.0) ported from
+  Arch R v3.0.3 combines the ADC stick and GPIO buttons into one `r36s_Gamepad`
+  (ABS ±1800, 17 standard keys); ES and RetroArch use it directly, no userspace bridge
+- RetroArch 1.20: GBA defaults to `mgba` (the `gpsp` core exits immediately on this unit)
+- Flash: Ruffle native runtime; 20 samples launch and survive 20 seconds with no OOM/panic.
+  Per-game profiles and mouse click are experimental
 - zram swap, WiFi, 21 rotating boot images
 - A 16 GiB flashable image has been built (acceptance on a fresh card in progress)
 
-Not verified yet: N64/PSP performance, save reliability across repeated power cycles, board revisions other than the one tested, OTA.
+Not verified yet: N64/PSP performance, save reliability across repeated power cycles,
+other board revisions, OTA, and full Flash playability (per-game validation ongoing).
 
 ## Repository layout
 
 ```
 docs/     Design notes, failure logs, roadmaps (Chinese; field notes)
-kernel/   Kernel config, patches, build script, checksums
+kernel/   Kernel config, patches (incl. the Arch R GPL driver port), build script, checksums
 dts/      Device tree and the DSI panel driver
 scripts/  Image build, backup, flashing helpers
+config/   ES/RetroArch input mappings and system config snippets
 devlog/   Dated development notes
 assets/   Photos taken on the unit
 ```
@@ -66,7 +72,7 @@ See `docs/12_备份与恢复.md` for the backup and recovery procedure used in d
 The interesting part of this project is the failure log. A few highlights:
 
 - **Black screen, every core**: the vendor RetroArch links `librga.so.2` and copies frames with Rockchip's private 2D blitter; mainline has no RGA driver. Replaced the emulator, not the core.
-- **Two devices, one player**: the analog stick (`adc-joystick`) and the buttons (`gpio-keys`) are separate input devices; SDL/RetroArch will not merge them. Solved with a virtual keyboard bridge (`padmerge.py`).
+- **Two devices, one player**: the analog stick (`adc-joystick`) and buttons (`gpio-keys`) were separate input devices that SDL/RetroArch would not merge. First bridged in userspace (`padmerge.py`), then fixed at the kernel layer by porting `odroidgo3-joypad` from Arch R (GPL-2.0). The userspace bridge is retired.
 - **Save file overwritten with empty data**: a 128 KiB save became 0xFF. Root cause not proven; mitigations and the honest write-up are in `docs/11_2026-11-15_踩坑总表.md`.
 - **`olddefconfig` without `ARCH`** silently rewrote the kernel config for x86, producing a 25 MB image that boots to a black screen.
 
@@ -74,11 +80,16 @@ The full list, with evidence and commands, is in `docs/11_2026-11-15_踩坑总�
 
 ## Licensing
 
-- Kernel changes and device tree are **GPL-2.0** (they derive from the Linux kernel).
-- Userspace scripts and documentation are **CC BY-SA 4.0** unless stated otherwise.
-- The panel driver (`dts/panel-r36s.c`) is GPL-2.0, matching the kernel.
+- Kernel changes, device tree and the ported `odroidgo3-joypad` driver: **GPL-2.0**
+- Userspace scripts and documentation: **CC BY-SA 4.0** unless stated otherwise
+- Panel driver (`dts/panel-r36s.c`): GPL-2.0
+- Third-party provenance and copyright headers: see **THIRD_PARTY_NOTICES.md**
 
-No ROMs, BIOS files or copyrighted assets are distributed here.
+When distributing a kernel binary, the corresponding source is the upstream Linux 6.12
+tree plus every patch in `kernel/patches/`, `kernel/config-6.12-r36s` and `dts/`;
+the build procedure is in `kernel/build.sh`.
+
+No ROMs, BIOS files, SWF game assets or copyrighted material are distributed here.
 
 ## Links
 

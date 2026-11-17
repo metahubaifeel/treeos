@@ -14,7 +14,7 @@ DEV="${1:-}"
 [ -n "$DEV" ] || { echo "用法: sudo bash backup-card.sh /dev/sdX"; exit 1; }
 [ -b "$DEV" ] || { echo "不是块设备: $DEV"; exit 1; }
 
-OUTDIR=/home/amd/下载/r36s/.backup
+OUTDIR=${TREEOS_ROOT:-$HOME/r36s}/.backup
 mkdir -p "$OUTDIR"
 OUT="$OUTDIR/treeos-mothercard-$(date +%Y%m%d-%H%M).img.gz"
 

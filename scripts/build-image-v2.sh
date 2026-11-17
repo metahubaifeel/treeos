@@ -9,7 +9,7 @@
 # ============================================================
 set -euo pipefail
 
-D=/home/amd/下载/r36s/.build/out
+D=${TREEOS_ROOT:-$HOME/r36s}/.build/out
 IMG=/tmp/treeos-0.1.img
 BOOTLOADER="$D/bootloader-16m.bin"
 ROOTFS=/tmp/rootfs-clean.tgz
@@ -53,7 +53,7 @@ echo "[6/7] 写入内容"
 M=$(mktemp -d); mkdir -p "$M/p1" "$M/p2" "$M/p3"
 mount "${LOOP}p1" "$M/p1"
 # 启动文件：优先用卡上的 treeos-image 目录，其次 .build/out
-BD=/home/amd/下载/r36s/.build/out/bootfiles
+BD=${TREEOS_ROOT:-$HOME/r36s}/.build/out/bootfiles
 for f in Image boot.ini rk3326-r36s-treeos.dtb logo.bmp; do
     [ -f "$BD/$f" ] && cp "$BD/$f" "$M/p1/"
 done

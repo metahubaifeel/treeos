@@ -83,7 +83,8 @@
 /* ---------------------------------------------------------------- 按键 */
 /*
  * 与 go3 的差别（全部来自厂商 dtb）：
- *   - Select / Start 在本机是 BTN_TRIGGER_HAPPY1/2（704/705），不是 BTN_SELECT/START
+ *   - Select / Start 用标准 BTN_SELECT/BTN_START（厂商 dtb 用的是 TRIGGER_HAPPY，
+ *     但 RA/SDL 的自动映射不认那套码，2026-11-16 改为标准码）
  *   - GPIO2_PA2/PA3 = 右/左摇杆按下（706/707），GPIO2_PA4 = 第 5 个功能键（708）
  *   - GPIO2_PA5 空
  */
@@ -92,31 +93,67 @@
 /delete-node/ &btn_f1;		/* GPIO2_PA0 = 音量+ */
 /delete-node/ &btn_f2;		/* GPIO2_PA1 = 音量- */
 
-&btn_f3 {			/* GPIO2_PA2 */
-	label = "BTN_THUMBR";
-	linux,code = <BTN_TRIGGER_HAPPY3>;	/* 706 */
+&btn_f3 {			/* GPIO2_PA2 = 左摇杆按下（ES 实测） */
+	label = "BTN_THUMBL";
+	linux,code = <BTN_THUMBL>;
 };
 
 &btn_f4 {			/* GPIO2_PA3 */
-	label = "BTN_THUMBL";
-	linux,code = <BTN_TRIGGER_HAPPY4>;	/* 707 */
+	label = "BTN_THUMBR";
+	linux,code = <BTN_THUMBR>;
 };
 
-&btn_f5 {			/* GPIO2_PA4 */
-	label = "BTN_F5";
-	linux,code = <BTN_TRIGGER_HAPPY5>;	/* 708 */
+&btn_f5 {			/* GPIO2_PA4 = FN，作手柄 MODE 键 */
+	label = "BTN_MODE";
+	linux,code = <BTN_MODE>;
 };
 
 /delete-node/ &btn_f6;		/* GPIO2_PA5 未使用 */
 
 &builtin_gamepad {
+	/*
+	 * TreeOS：用 odroidgo3-joypad 驱动把「ADC 摇杆 + GPIO 按键」合并成
+	 * 一个标准手柄设备（内核层解决 SDL/RetroArch 不合并的问题）。
+	 * 驱动见 drivers/input/joystick/odroidgo3-joypad.c，移植自 Arch R
+	 * （GPL-2.0，archr-004-input-drivers.patch）。
+	 */
+	compatible = "odroidgo3-joypad";
+	joypad-name = "r36s_Gamepad";
+	joypad-product = <0x1188>;
+	joypad-revision = <0x188>;
+
 	pinctrl-names = "default";
 	pinctrl-0 = <&btn_pins &btn_pins_extra>;
+
+	/* 摇杆：saradc ch1 经模拟开关分时采样 */
+	amux-count = <4>;
+	io-channel-names = "amux_adc";
+	io-channels = <&saradc 1>;
+	amux-a-gpios = <&gpio3 RK_PB3 GPIO_ACTIVE_LOW>;
+	amux-b-gpios = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
+	amux-en-gpios = <&gpio3 RK_PB5 GPIO_ACTIVE_LOW>;
+
+	/* 厂商标定值 */
+	button-adc-scale = <2>;
+	button-adc-deadzone = <64>;
+	button-adc-fuzz = <32>;
+	button-adc-flat = <32>;
+	abs_x-p-tuning = <200>;
+	abs_x-n-tuning = <200>;
+	abs_y-p-tuning = <200>;
+	abs_y-n-tuning = <200>;
+	abs_rx-p-tuning = <200>;
+	abs_rx-n-tuning = <200>;
+	abs_ry-p-tuning = <200>;
+	abs_ry-n-tuning = <200>;
+	poll-interval = <10>;
+	invert-absx;
+	invert-absy;
 
 	button-sw19 {
 		gpios = <&gpio3 RK_PB1 GPIO_ACTIVE_LOW>;
 		label = "SELECT";
-		linux,code = <BTN_TRIGGER_HAPPY1>;	/* 704 */
+		linux,code = <BTN_SELECT>;
 	};
 	/* TR2 / TL2 在这块板子上和 go3 一样是反的 */
 	button-sw20 {
@@ -132,7 +169,7 @@
 	button-sw22 {
 		gpios = <&gpio3 RK_PB4 GPIO_ACTIVE_LOW>;
 		label = "START";
-		linux,code = <BTN_TRIGGER_HAPPY2>;	/* 705 */
+		linux,code = <BTN_START>;
 	};
 };
 
@@ -159,73 +196,12 @@
 };
 
 /* ---------------------------------------------------------------- 摇杆 */
-/* 走线与 go3 相同：saradc ch1 + GPIO3 PB3/PB0 复用，PB5 使能 */
-/ {
-	joystick_mux_controller: mux-controller {
-		compatible = "gpio-mux";
-		pinctrl-names = "default";
-		pinctrl-0 = <&mux_en_pins>;
-		#mux-control-cells = <0>;
-
-		mux-gpios = <&gpio3 RK_PB3 GPIO_ACTIVE_LOW>,
-			    <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
-	};
-
-	joystick_mux: adc-mux {
-		compatible = "io-channel-mux";
-		io-channels = <&saradc 1>;
-		io-channel-names = "parent";
-		#io-channel-cells = <1>;
-
-		mux-controls = <&joystick_mux_controller>;
-		channels = "0", "1", "2", "3";
-	};
-
-	analog_sticks: adc-joystick {
-		compatible = "adc-joystick";
-		io-channels = <&joystick_mux 0>,
-			      <&joystick_mux 1>,
-			      <&joystick_mux 2>,
-			      <&joystick_mux 3>;
-		poll-interval = <60>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		/* 厂商标定：scale=2 deadzone=64 fuzz=32 flat=32 max-step=225 */
-
-		axis@0 {
-			reg = <0>;
-			abs-flat = <10>;
-			abs-fuzz = <10>;
-			abs-range = <180 800>;
-			linux,code = <ABS_X>;
-		};
-
-		axis@1 {
-			reg = <1>;
-			abs-flat = <10>;
-			abs-fuzz = <10>;
-			abs-range = <180 800>;
-			linux,code = <ABS_RX>;
-		};
-
-		axis@2 {
-			reg = <2>;
-			abs-flat = <10>;
-			abs-fuzz = <10>;
-			abs-range = <180 800>;
-			linux,code = <ABS_Y>;
-		};
-
-		axis@3 {
-			reg = <3>;
-			abs-flat = <10>;
-			abs-fuzz = <10>;
-			abs-range = <180 800>;
-			linux,code = <ABS_RY>;
-		};
-	};
-};
+/*
+ * 摇杆已并入上面 &builtin_gamepad（odroidgo3-joypad 驱动）：
+ * saradc ch1 + GPIO3 PB3/PB0 选择、PB5 使能，采样与按键合并成一个手柄。
+ * 原来的 mux-controller / io-channel-mux / adc-joystick 三个节点已删除，
+ * 否则会和合并手柄重复上报轴事件。
+ */
 
 /* ---------------------------------------------------------------- 音频 */
 /*

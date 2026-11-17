@@ -4,3 +4,16 @@
 .build/
 .backup/
 node_modules/
+
+# 个人/游戏资源，绝不入库
+*.swf
+*.srm
+*.sav
+*.state
+*.zip
+roms/
+saves/
+*.log
+*.pem
+*.key
+id_rsa*
