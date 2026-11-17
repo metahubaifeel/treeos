@@ -38,6 +38,12 @@ TreeOS 换掉地基：
 尚未验证：N64/PSP 性能、反复开关机后的存档可靠性、其他板型、OTA、
 Flash 全量可玩性（逐游戏验证仍在进行）。
 
+## 实拍与视频
+
+- 《死神 vs 火影》掌机实玩（114 秒，已裁掉片尾水印）：
+  [assets/video/treeos-bvs-handheld.mp4](assets/video/treeos-bvs-handheld.mp4)
+- 图片：[assets/merged-gamepad/](assets/merged-gamepad/)
+
 ## 仓库结构
 
 ```

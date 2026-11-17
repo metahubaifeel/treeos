@@ -38,6 +38,12 @@ TreeOS replaces the base:
 Not verified yet: N64/PSP performance, save reliability across repeated power cycles,
 other board revisions, OTA, and full Flash playability (per-game validation ongoing).
 
+## Photos and video
+
+- Bleach vs Naruto on the handheld (114 s, end watermark trimmed):
+  [assets/video/treeos-bvs-handheld.mp4](assets/video/treeos-bvs-handheld.mp4)
+- Stills: [assets/merged-gamepad/](assets/merged-gamepad/)
+
 ## Repository layout
 
 ```

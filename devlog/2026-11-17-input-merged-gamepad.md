@@ -33,6 +33,18 @@ Flash 游戏加载：
 
 ![死神 vs 火影加载界面](assets/merged-gamepad/001_bvs_loading.jpg)
 
+真机视频（114 秒，已裁掉片尾水印）：[assets/video/treeos-bvs-handheld.mp4](assets/video/treeos-bvs-handheld.mp4)
+
+[![死神 vs 火影 掌机实拍](assets/video/treeos-bvs-poster.jpg)](assets/video/treeos-bvs-handheld.mp4)
+
+更多实拍：
+
+![掌机背面](assets/merged-gamepad/r36s-back.jpg)
+![角色选择](assets/merged-gamepad/bvs-character-select.jpg)
+![Flash 分类页](assets/merged-gamepad/flash-category.jpg)
+![CS 射击练习](assets/merged-gamepad/cs-shooting.png)
+![设置界面](assets/merged-gamepad/001_设置ui_bvs26.jpg)
+
 ## 两个真正花时间的坑
 
 **1. 节点名不能叫 `gpio-keys`。**
