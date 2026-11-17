@@ -44,6 +44,10 @@ other board revisions, OTA, and full Flash playability (per-game validation ongo
   [assets/video/treeos-bvs-handheld.mp4](assets/video/treeos-bvs-handheld.mp4)
 - Stills: [assets/merged-gamepad/](assets/merged-gamepad/)
 
+- Flash runtime and memory findings: `docs/18_Flash运行时与内存.md`
+- Ruffle recompilation project: `docs/19_Ruffle重编译项目.md`
+- Multi-SoC and ports compatibility review: `docs/08_外部评审-OldBits与多SoC-gpt6luna.md`
+
 ## Repository layout
 
 ```

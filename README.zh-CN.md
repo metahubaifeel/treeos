@@ -44,6 +44,10 @@ Flash 全量可玩性（逐游戏验证仍在进行）。
   [assets/video/treeos-bvs-handheld.mp4](assets/video/treeos-bvs-handheld.mp4)
 - 图片：[assets/merged-gamepad/](assets/merged-gamepad/)
 
+- Flash 运行时与内存实测：`docs/18_Flash运行时与内存.md`
+- Ruffle 重编译（暂停/菜单）：`docs/19_Ruffle重编译项目.md`
+- 多 SoC 与 ports 兼容评审：`docs/08_外部评审-OldBits与多SoC-gpt6luna.md`
+
 ## 仓库结构
 
 ```
