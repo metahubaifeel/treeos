@@ -54,3 +54,23 @@
   `Emulationstation/`、`audio/`、`batteryplus/` 等；只参考流程与目录，不整体复制。
 - 另有一个现成的开源参考：`Cristiangc67/ruffle-r36s-darkos`（R36S 上的 Ruffle ARM64 适配），
   可用于对比启动器与引擎选型；使用前先核对其许可证。
+
+
+## 六、第一次真实试编译（2026-11-18）
+
+对象：Linux **6.15.6** + ROCKNIX 提交 `4ad88b8bc7`（2025-12-05）的 12 个 RK3326 补丁。
+
+结果：
+
+1. **12 个补丁全部干净应用**（`patch -p1 --dry-run` 全 OK），补丁里直接带
+   `rk3326-gameconsole-r36s.dts`、面板 `gameconsole,r36s-panel`、`joypad-name = "r36s_Gamepad"`。
+2. **但直接编译失败**：`004-input-drivers.patch` 依赖 `input-polldev` 和 `of_gpio_legacy`，
+   而这两个 API 在 6.15 已删除；ROCKNIX 后来（2026-08/09）才补了 002/003 两个补丁。
+3. 用当前 main 的 `003-input-add-input-polldev-driver.patch` 对 6.15.6 应用：**干净**；
+   `002-gpiolib-of-legacy-api.patch` 的 `of_gpio.h` hunk 冲突，其余部分可用。
+4. 最小修复：在 `include/linux/of_gpio.h` 补回 `enum of_gpio_flags` 和
+   `of_get_named_gpio_flags()` 声明；开启 `CONFIG_INPUT_POLLDEV=y`。
+5. **编译通过**：`Image` 48MB、`rk3326-gameconsole-r36s.dtb` 49KB。
+
+结论：**6.15.6 + ROCKNIX 补丁是一条可编译路径**，但不是“拿来即用”，需要一个小 backport。
+下一步是刷机验证启动、面板、输入、音频、WiFi 与 Flash；通过后再决定长期 pin 6.15 还是移植到 6.18/7.x。
