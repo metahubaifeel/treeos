@@ -28,8 +28,9 @@
 
 ## 未验证 / 实验
 
-- 新 Flash 运行时（Weston 14 kiosk + wgpu，fontconfig）：已在 RK3326 1GB 上跑通 3.2 的中文、全屏、主菜单；
-  输入（-B 映射、右摇杆鼠标、L2/R2 点击）、FN 设置、Select+Start 退出已接通；**完整试玩、存档目录、30 分钟压测待验收**
+- 新 Flash 运行时（Weston 14 kiosk + wgpu，fontconfig）：RK3326 1GB 上 wgpu/中文/右摇杆光标可用；
+  **鼠标左键尚未到达 Flash 内容**（只能点开 Ruffle 自身菜单）；3.2 在 1GB + Weston 下会 OOM/重启，
+  不作为 1GB 的日常目标；FN 联动、存档、30 分钟压测未验收
 - ROCKNIX 补丁栈替换后的内核等价性（迁移中）
 - RK3566 / RK3562：已采购、物流中；到货前不写“已支持”
 - H700：研究记录，无实机
