@@ -103,3 +103,7 @@
 **v4 结果（2026-11-18）**：6.15.6 + `0001-mfd-rk8xx-codec-of-compatible.patch` 启动成功；
 `card 0 [rockchiprk817co]` 出现，Master 60/255；`r36s_Gamepad`、面板、WiFi 正常。
 **电量仍为 1%/Discharging，未修**。6.15 目前是候选内核，默认仍是 6.12。
+
+**v5 结果（2026-11-18 深夜）**：把 6.12 的 `drivers/power/supply/rk817_charger.c` backport 到 6.15，
+电量读数恢复：`capacity=66%`、`charge_now=2109580/3200000`、`voltage=4.10V`。6.15 至此具备
+启动/面板/输入/音频/电量/WiFi；仍是候选内核，默认 6.12，待 Flash A/B 回归后决定。
