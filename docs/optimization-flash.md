@@ -32,3 +32,15 @@
 - 通过线：两次配对 P95 均降 ≥10%，或 >250ms 次数降 ≥50% 且少 ≥2 次/轮，另一指标恶化 ≤5%；
   timeout 必须 0、无 reset/OOM、MemAvailable 最低 ≥64MiB；
 - 任一 timeout、映射错误、游戏速度变化、破图即回退。
+
+
+## 造梦西游实机结论（2026-11-19）
+
+- `--quality low` 不等于降渲染像素；真正有效的是 Ruffle 窗口/渲染尺寸。
+- **480×360 是 RK3326/1GB 的平衡点**：RSS 466→439MB，用户反馈“快很多”。
+- **320×240 反而更慢**：Weston 放大到 640×480 的额外开销抵消收益；实测温度 84.6°C，
+  已贴近 85°C 降频线，GPU 只有 400MHz。
+- 结论：再降像素无效，瓶颈在**热降频 + AS3 VM**，不在绘制。
+- 正确 profile：`profiles/custom/0_L4399Main_gamefile-offine-mod2.profile`（width=480 height=360 quality=low）；
+  多文件游戏必须写到主 SWF 的 stem 上。
+- 修复：`flashcfg dump --shell <profile>` 曾把 `--shell` 当 profile，导致启动器没应用配置。
