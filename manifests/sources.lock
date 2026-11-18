@@ -1,18 +1,17 @@
-# 上游来源锁定（示例结构；提交与校验值在迁移时补全）
 schema: 1
-sources:
-  linux:
-    repo: https://github.com/torvalds/linux
-    version: "6.12"          # 迁移目标另行 pin
-    note: 设备补丁来自 ROCKNIX patch stack
-  rocknix:
-    repo: https://github.com/ROCKNIX/distribution
-    commit: TBD              # 迁移时固定
-    patches: projects/ROCKNIX/devices/{RK3326,RK3566,H700}/patches/linux
-  archr-input:
-    repo: https://github.com/archr-linux/Arch-R
-    release: v3.0.3
-    patch: kernel/patches/0004-input-drivers-archr.patch
-    sha256: TBD
-  darkos:
-    usage: userspace-reference-only
+verified_at: "2026-11-18"
+kernel:
+  version: "6.15.6"
+  base: https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.15.6.tar.xz
+  patches_origin: ROCKNIX/distribution (RK3326 device patches, snapshot 2025-12)
+  extra:
+    - "0001-mfd-rk8xx-codec-of-compatible.patch"
+    - "003-input-add-input-polldev-driver.patch (ROCKNIX)"
+    - "002-gpiolib-of-legacy-api.patch (partial; of_gpio.h enum backport)"
+    - "6.12 drivers/power/supply/rk817_charger.c backport"
+input:
+  driver: odroidgo3-joypad
+  origin: Arch R v3.0.3 (GPL-2.0)
+rollback:
+  kernel: "6.12 (#17)"
+  backup_path: "/roms/backup/kernel-6.12-*"
