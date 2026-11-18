@@ -86,3 +86,16 @@
 - 未解决：`rk817-sound: deferred probe pending: asoc-simple-card: parse error`（缺 6.12 的
   `0001-mfd-rk8xx-codec-of-compatible.patch`）；电量显示 0%（rk817 电量驱动/DTS 待修）。
 - 下一版：v4 = v3 + 0001 codec 补丁，先恢复声音；再单独做面板补丁对比与电量修复。
+
+
+## 八、v3 回归结果（2026-11-18，Flash 线实测）
+
+- 输入：`r36s_Gamepad`，键码 304/305/307/308、310–313、314–316、317/318、544–547，
+  `ABS=0x1b`，与 6.12 完全一致；
+- 面板、ES、WiFi 正常；
+- 旧冻结核心 2.6：因无声卡 `rc=101` 退出（6.12 上无音频设备时同样行为）；
+- 新运行时（Weston + wgpu）：画面/中文正常，无声卡仅告警，不致命；
+- 结论：**除音频外，6.15 v3 与 6.12 等价**。
+
+**v4**：v3 + `0001-mfd-rk8xx-codec-of-compatible.patch`（修声卡），Image md5 `0295f5db…`，待装。
+**待修**：rk817 电量显示 0%。
