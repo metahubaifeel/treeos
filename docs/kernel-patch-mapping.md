@@ -74,3 +74,15 @@
 
 结论：**6.15.6 + ROCKNIX 补丁是一条可编译路径**，但不是“拿来即用”，需要一个小 backport。
 下一步是刷机验证启动、面板、输入、音频、WiFi 与 Flash；通过后再决定长期 pin 6.15 还是移植到 6.18/7.x。
+
+
+## 七、6.15 控制组与 v3 实机结果（2026-11-18）
+
+- **控制组**：6.15.6 原版 + 我们的 `rk3326-r36s.dts` + 自写 `panel-r36s.c`（内置）。
+  结果：**启动成功**，面板 `probe/prepare/enable`、`fb0`、panfrost、WiFi、SSH 全部正常 → 证明 6.15 内核本身可用。
+- **v3**：控制组 + ROCKNIX `004-input-drivers` + `003`/`002` backport（内置 polled input、恢复 legacy GPIO）。
+  结果：**启动成功**，`r36s_Gamepad`（odroidgo3-joypad）恢复，面板/网络正常。
+- 结论：之前 v1/v2 的黑屏来自 **ROCKNIX 的 DTS/面板补丁（000/001/007）**，不是 6.15 内核。
+- 未解决：`rk817-sound: deferred probe pending: asoc-simple-card: parse error`（缺 6.12 的
+  `0001-mfd-rk8xx-codec-of-compatible.patch`）；电量显示 0%（rk817 电量驱动/DTS 待修）。
+- 下一版：v4 = v3 + 0001 codec 补丁，先恢复声音；再单独做面板补丁对比与电量修复。
