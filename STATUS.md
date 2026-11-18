@@ -28,6 +28,8 @@
 
 ## 未验证 / 实验
 
+- 6.15 候选内核（v4）：6.15.6 + ROCKNIX 输入驱动 + 我们 DTS/面板 + codec 补丁；
+  启动、面板、WiFi、合并手柄、声卡（card 0 rk817）已实测；**电量 0%/1% 未解决**，尚未设为默认
 - 新 Flash 运行时（Weston 14 kiosk + wgpu，fontconfig）：RK3326 1GB 上 wgpu/中文/右摇杆光标可用；
   **鼠标左键尚未到达 Flash 内容**（只能点开 Ruffle 自身菜单）；3.2 在 1GB + Weston 下会 OOM/重启，
   不作为 1GB 的日常目标；FN 联动、存档、30 分钟压测未验收

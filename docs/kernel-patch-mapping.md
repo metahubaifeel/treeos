@@ -99,3 +99,7 @@
 
 **v4**：v3 + `0001-mfd-rk8xx-codec-of-compatible.patch`（修声卡），Image md5 `0295f5db…`，待装。
 **待修**：rk817 电量显示 0%。
+
+**v4 结果（2026-11-18）**：6.15.6 + `0001-mfd-rk8xx-codec-of-compatible.patch` 启动成功；
+`card 0 [rockchiprk817co]` 出现，Master 60/255；`r36s_Gamepad`、面板、WiFi 正常。
+**电量仍为 1%/Discharging，未修**。6.15 目前是候选内核，默认仍是 6.12。
