@@ -52,7 +52,7 @@ Flash 全量可玩性（逐游戏验证仍在进行）。
 - 经典页游离线分类：`docs/21_经典页游分类.md`
 - 工具与映射示例：`tools/`
 
-- 硬件事实（R36S / 2GB 改装 / 风扇 / WiFi 模块）：`docs/hardware/R36S-hardware.md`
+- 硬件事实（R36S / 2GB 改装 / 风扇 / WiFi 模块 / 设备清单）：`docs/hardware/`
 
 ## 仓库结构
 

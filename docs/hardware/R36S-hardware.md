@@ -96,8 +96,8 @@
 | 证据 | 位置 |
 |---|---|
 | 主线 dts | `dts/rk3326-r36s.dts` |
-| TreeOS 内核配置 | `kernel/config-6.12-r36s` |
-| 内核源码 | 上游 Linux 6.12（`rtw88`/`btrtl`/`rtl8xxxu`） |
+| TreeOS 内核配置 | `kernel/config-6.15.6`（6.12 配置保留对比） |
+| 内核源码 | 上游 Linux 6.15.6（`rtw88`/`btrtl`/`rtl8xxxu`） |
 | vendor dtb dump | 内部文件（不公开；引用节点名即可） |
 | 主板/内存丝印照片 | 内部存档（公开需打码） |
 | 风扇 BGA 球位图 | 内部存档 |
