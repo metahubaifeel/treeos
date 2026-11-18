@@ -43,6 +43,12 @@
 - ports 兼容层（port-runner）
 - 开发终端 / 中文输入 / coding agent / 本地小模型
 
+## 已知问题
+
+- 部分 Flash 游戏（earn-to-die 类）在 Panfrost 下 `gpu sched timeout` 黑屏；6.12/6.15 均复现，低画质仅降低概率
+- 新运行时可能出现双光标（Weston/Ruffle 光标层），不影响操作；隐藏系统光标会让游戏无指针，未解
+- 《死神 vs 火影 3.2》在 1GB 上换页卡顿，属 2GB 可选档，不作 1GB 承诺
+
 ## 不承诺
 
 - 「所有 Flash 游戏都能玩」；只承诺逐款验证清单中的版本
