@@ -1,0 +1,18 @@
+# 上游来源锁定（示例结构；提交与校验值在迁移时补全）
+schema: 1
+sources:
+  linux:
+    repo: https://github.com/torvalds/linux
+    version: "6.12"          # 迁移目标另行 pin
+    note: 设备补丁来自 ROCKNIX patch stack
+  rocknix:
+    repo: https://github.com/ROCKNIX/distribution
+    commit: TBD              # 迁移时固定
+    patches: projects/ROCKNIX/devices/{RK3326,RK3566,H700}/patches/linux
+  archr-input:
+    repo: https://github.com/archr-linux/Arch-R
+    release: v3.0.3
+    patch: kernel/patches/0004-input-drivers-archr.patch
+    sha256: TBD
+  darkos:
+    usage: userspace-reference-only
