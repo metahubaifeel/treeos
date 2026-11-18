@@ -25,12 +25,12 @@
 - 音频：外放 / 耳机 / 自动切换
 - Flash：Ruffle native（DRM 直出）；20 个样本启动存活 20 秒；《死神 vs 火影 2.6》进入对战并可操作
 - 存储：exFAT 游戏分区；zram 默认（Flash 3.x 需特殊 swap 配置，见 docs/18）
+- **内核 6.15.6（v5，已部署）**：ROCKNIX 输入补丁 + 我们 DTS/面板 + codec 与 rk817 电量驱动 backport；
+  面板、合并手柄、声卡（card 0 rk817）、电量（66%、充电）、WiFi 实测通过；Flash A/B 两条运行时均通过；
+  6.12 保留为回滚备份（`/roms/backup/kernel-6.12-*`）
 
 ## 未验证 / 实验
 
-- 6.15 已部署内核（v5）：6.15.6 + ROCKNIX 输入驱动 + 我们 DTS/面板 + codec 补丁 + 6.12 rk817 电量驱动 backport；
-  启动、面板、WiFi、合并手柄、声卡、电量（66%、充电）已实测；Flash A/B 两条线均通过；
-  **6.12 保留为回滚备份**（`/roms/backup/kernel-6.12-*`）
 - 已知：部分 Flash 游戏（如 earn-to-die）在 Panfrost 下 GPU hang，6.12/6.15 均复现，与内核版本无关
 - 新 Flash 运行时（Weston 14 kiosk + wgpu，fontconfig）：RK3326 1GB 上 wgpu/中文/右摇杆光标可用；
   **鼠标左键尚未到达 Flash 内容**（只能点开 Ruffle 自身菜单）；3.2 在 1GB + Weston 下会 OOM/重启，
