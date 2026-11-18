@@ -14,6 +14,10 @@
 
 > 2GB 不是使用 TreeOS 的前提；不改机的 1GB 设备继续受支持。
 
+## 硬件事实
+
+- R36S 硬件表、2GB 改装、风扇 UART、RTL8723DU 适配：`docs/hardware/R36S-hardware.md`
+
 ## 已验证（RK3326 / R36S，1GB）
 
 - Debian 13 + 主线 Linux 6.12，16GB 可刷写镜像，冷启动约 11 秒进入中文 EmulationStation

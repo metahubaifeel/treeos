@@ -52,6 +52,8 @@ other board revisions, OTA, and full Flash playability (per-game validation ongo
 - Classic web-game classification: `docs/21_经典页游分类.md`
 - Tools and mapping examples: `tools/`
 
+- Hardware facts (R36S, 2GB mod, fan, Wi-Fi module): `docs/hardware/R36S-hardware.md`
+
 ## Repository layout
 
 ```
