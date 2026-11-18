@@ -10,7 +10,7 @@
 | 项目 | 事实 | 证据 | 状态 |
 |---|---|---|---|
 | SoC | **Rockchip RK3326**，4×Cortex-A35，Mali-G31 MP1 | `dts/rk3326-r36s.dts` compatible；`/proc/cpuinfo` | ✅ 已验证 |
-| 内存 | **918 MB 可用**；2× **Micron D9PXV** = MT41K256M16HA-125:E，DDR3L 4Gb 256M×16，BGA96，单颗 512MB，共 1GB | 板照 `08_硬件改造记录/20261113_双USB与充电板/07_V30主板_充电电路红圈与内存丝印.jpg`；`/proc/meminfo`；D9PXV 丝印 | ✅ 已验证 |
+| 内存 | **918 MB 可用**；2× **Micron D9PXV** = MT41K256M16HA-125:E，DDR3L 4Gb 256M×16，BGA96，单颗 512MB，共 1GB | 板照（内部存档，公开需打码）；`/proc/meminfo`；D9PXV 丝印 | ✅ 已验证 |
 | PMIC | **RK817**（I2C 0x20）：电池、充电、音频 codec、RTC、电源键 | vendor dtb `pmic@20`；`aplay -l` card `rk817-codec` | ✅ 已验证 |
 | 电量计 | RK817 内置；`sample_res = 10mΩ`；`design_capacity = 3380mAh`；`design_qmax = 3718mAh`；`ocv_table` 21 点 | vendor dtb `battery` 节点 | ✅ 已验证（配置值） |
 | WiFi | **RTL8188EU**，USB `0bda:8179`，挂内部 hub `1a40:0101` | `lsusb`；`lsusb -t`；vendor dtb | ✅ 已验证 |
@@ -98,8 +98,8 @@
 | TreeOS 内核配置 | `kernel/config-6.12-r36s` |
 | 内核源码 | 上游 Linux 6.12（`rtw88`/`btrtl`/`rtl8xxxu`） |
 | vendor dtb dump | 内部文件（不公开；引用节点名即可） |
-| 主板/内存丝印照片 | `08_硬件改造记录/20261113_双USB与充电板/07_V30主板_充电电路红圈与内存丝印.jpg` |
-| 风扇 BGA 球位图 | `08_硬件改造记录/20261113_双USB与充电板/M19_N21_BGA球位图.png` |
+| 主板/内存丝印照片 | 内部存档（公开需打码） |
+| 风扇 BGA 球位图 | 内部存档 |
 | RK3326 数据手册 | [RK3326 Datasheet V1.4](https://www.rockchip.fr/RK3326%20datasheet%20V1.4.pdf) |
 | 实测读数 | 2026-11-13：电池 3.712V、-660mA、68%、SARADC ch0=165、thermal 74°C、`ac/usb online=0` |
 
@@ -119,7 +119,6 @@
 
 ## 相关
 
-- `03_需求与缺陷清单.md`（硬件底子）
-- `16_竞品与差异化.md`（定位）
-- `17_RTL8723DU适配.md`（模块细节）
-- `08_硬件改造记录/20261115_风扇UART方案/README.md`
+- `docs/03_需求与缺陷清单.md`（硬件底子）
+- 竞品与定位、风扇 UART 细节、RTL8723DU 适配：内部资料，未随本仓库公开
+- 板照/丝印：内部存档，公开版需打码
