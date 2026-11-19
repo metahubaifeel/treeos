@@ -320,7 +320,8 @@ def main():
         log(f"没有 {IMPORT}，跳过")
         return 0
     items = sorted(os.listdir(IMPORT))
-    items = [i for i in items if not i.startswith(".")]
+    items = [i for i in items if not i.startswith(".")
+             and not i.lower().startswith(("readme", "说明", "装游戏"))]
     if not items:
         log("import 目录为空")
         return 0

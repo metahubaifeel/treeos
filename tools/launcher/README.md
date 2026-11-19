@@ -38,6 +38,7 @@ gcc -O2 -I. -o flash-mapper flash-mapper-main.c \
 
 ## 安装游戏（给用户）
 
+镜像里会放一份白话版：`/roms/import/装游戏说明.md`（源文件同目录）。
 镜像不预装任何游戏。用户把自己的文件放进 `EASYROMS` 分区（挂载为 `/roms`）的
 `import/` 目录，开机时自动归档：
 
