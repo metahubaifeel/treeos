@@ -1,0 +1,209 @@
+#!/usr/bin/env python3
+"""flashcfg: TreeOS Flash 逐游戏配置的唯一读写入口（schema v2）。
+
+用法:
+  flashcfg get  <profile> <key> [default]
+  flashcfg dump <profile> [--shell]
+  flashcfg set  <profile> <key> <value>
+  flashcfg migrate <profile>
+"""
+import os, sys, tempfile, fcntl, shutil, time
+
+PROF_DIR = "/roms/ports/rufflehandheld/profiles"
+DEFAULTS = os.path.join(PROF_DIR, "defaults.conf")
+SCHEMA = 3
+
+BUILTIN = {
+    "runtime.backend": "auto",
+    "video.quality": "low",
+    "video.viewport": "auto",
+    "input.mouse_stick": "left",
+    "input.mouse_speed": "6",
+}
+ENUMS = {
+    "runtime.backend": {"auto", "classic", "enhanced", "a", "b"},
+    "video.quality": {"low", "medium", "high", "best"},
+    "input.mouse_stick": {"left", "right", "off"},
+    "control.template": {"arrows", "wasd", "pointer", "arrows_pointer", "wasd_pointer"},
+    "control.mouse_left": {"none", "south", "east", "west", "north", "l1", "r1", "l2", "r2", "start", "select"},
+    "control.mouse_right": {"none", "south", "east", "west", "north", "l1", "r1", "l2", "r2", "start", "select"},
+}
+LEGACY = {
+    "quality": "video.quality",
+    "mouse_speed": "input.mouse_speed",
+}
+
+def die(msg, code=2):
+    print("flashcfg: " + msg, file=sys.stderr)
+    sys.exit(code)
+
+def valid(key, val):
+    if key in ENUMS and val not in ENUMS[key]:
+        return False
+    if key == "input.mouse_speed":
+        try:
+            n = int(val); return 1 <= n <= 10
+        except ValueError:
+            return False
+    if key == "video.viewport":
+        if val == "auto": return True
+        import re
+        return bool(re.fullmatch(r"\d{2,4}x\d{2,4}", val))
+    return True
+
+def read_pairs(path):
+    """返回 [(key, value, raw_line, dup)]，保持原顺序；重复键标记。"""
+    if not os.path.exists(path):
+        return []
+    out, seen = [], {}
+    for raw in open(path, encoding="utf-8", errors="replace"):
+        line = raw.rstrip("\n")
+        s = line.strip()
+        if not s or s.startswith("#") or "=" not in s:
+            out.append((None, None, line, False)); continue
+        k, v = s.split("=", 1)
+        k, v = k.strip(), v.strip()
+        dup = k in seen
+        seen[k] = True
+        out.append((k, v, line, dup))
+    return out
+
+def resolve(profile):
+    """返回 (merged dict, raw pairs, source dict)。优先级：builtin < defaults < profile。"""
+    merged, src = dict(BUILTIN), {k: "builtin" for k in BUILTIN}
+    for path, tag in ((DEFAULTS, "defaults"), (profile, "game")):
+        for k, v, _, dup in read_pairs(path):
+            if k is None: continue
+            if dup: die(f"{path}: 重复键 {k}")
+            merged[k] = v; src[k] = tag
+    # 环境变量临时覆盖：FLASHCFG_RUNTIME_BACKEND 等
+    for key in list(merged):
+        env = "FLASHCFG_" + key.upper().replace(".", "_")
+        if env in os.environ:
+            merged[key] = os.environ[env]; src[key] = "env"
+    # 旧键兼容
+    for old, new in LEGACY.items():
+        if merged.get(new, BUILTIN.get(new)) == BUILTIN.get(new) and old in merged:
+            merged[new] = merged[old]; src[new] = src.get(old, "game")
+    # .stick 兼容（只读）：逐游戏文件优先于全局默认
+    game_keys = {k for k, v, r, d in read_pairs(profile) if k}
+    if "input.mouse_stick" not in game_keys:
+        stick = os.path.splitext(profile)[0] + ".stick"
+        try:
+            v = open(stick).read().strip()
+        except OSError:
+            v = ""
+        if v == "mouse": merged["input.mouse_stick"] = "left"; src["input.mouse_stick"]="legacy"
+        elif v in ("wasd", "arrows"): merged["input.mouse_stick"] = "right"; src["input.mouse_stick"]="legacy"
+    # 视口：逐游戏 width/height 优先于全局默认
+    game_keys = {k for k, v, r, d in read_pairs(profile) if k}
+    if "video.viewport" not in game_keys:
+        w = merged.get("width"); h = merged.get("height")
+        if w and h:
+            merged["video.viewport"] = f"{w}x{h}"; src["video.viewport"] = "legacy"
+    # 校验，坏值回退
+    # 别名归一化：a/b -> classic/enhanced
+    if merged.get("runtime.backend") == "a": merged["runtime.backend"] = "classic"
+    if merged.get("runtime.backend") == "b": merged["runtime.backend"] = "enhanced"
+    for k, v in list(merged.items()):
+        if not valid(k, v):
+            print(f"flashcfg: 警告 {k}={v} 无效，使用默认 {BUILTIN.get(k)}", file=sys.stderr)
+            merged[k] = BUILTIN.get(k, "")
+    return merged, src
+
+def viewport(v):
+    if v == "auto": return ("640", "480")
+    w, h = v.split("x"); return (w, h)
+
+def atomic_write(path, lines):
+    d = os.path.dirname(path); os.makedirs(d, exist_ok=True)
+    lock = open(path + ".lock", "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        fd, tmp = tempfile.mkstemp(dir=d, prefix=".flashcfg.")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines) + "\n")
+                f.flush(); os.fsync(f.fileno())
+            shutil.copymode(path, tmp) if os.path.exists(path) else None
+            os.replace(tmp, path)
+        except Exception:
+            try: os.unlink(tmp)
+            except OSError: pass
+            raise
+    finally:
+        fcntl.flock(lock, fcntl.LOCK_UN); lock.close()
+
+def cmd_get(a):
+    if len(a) < 2: die("get <profile> <key> [default]")
+    merged, _ = resolve(a[0])
+    print(merged.get(a[1], a[2] if len(a) > 2 else ""))
+
+def cmd_dump(a):
+    prof = next((x for x in a if not x.startswith("--")), None)
+    if not prof: die("dump <profile> [--shell]")
+    merged, src = resolve(prof)
+    w, h = viewport(merged["video.viewport"])
+    vals = {
+        "schema": str(SCHEMA),
+        "backend": merged["runtime.backend"],
+        "quality": merged["video.quality"],
+        "width": w, "height": h,
+        "mouse_stick": merged["input.mouse_stick"],
+        "mouse_speed": merged["input.mouse_speed"],
+    }
+    for k, v in vals.items():
+        if "--shell" in a:
+            print(f"{k.upper()}='{v}'")
+        else:
+            print(f"{k}={v}")
+
+def cmd_set(a):
+    if len(a) < 3: die("set <profile> <key> <value>")
+    path, key, val = a[0], a[1], a[2]
+    if not valid(key, val): die(f"值无效: {key}={val}")
+    pairs = read_pairs(path)
+    out, done = [], False
+    for k, v, raw, dup in pairs:
+        if k == key:
+            out.append(f"{key}={val}"); done = True
+        else:
+            out.append(raw)
+    if not done: out.append(f"{key}={val}")
+    # 只补缺失的 schema 行；已有的（含 v2 旧档）不重复插入
+    if not any(line.strip().startswith("schema=") for line in out):
+        out.insert(0, f"schema={SCHEMA}")
+    atomic_write(path, out)
+
+def cmd_migrate(a):
+    if not a: die("migrate <profile>")
+    path = a[0]
+    if not os.path.exists(path): die(f"不存在: {path}")
+    pairs = read_pairs(path)
+    have = {k for k, v, r, d in pairs if k}
+    if "schema" in have and any(k == "schema" and v == str(SCHEMA) for k, v, r, d in pairs):
+        print(f"already schema{SCHEMA}"); return
+    shutil.copy2(path, f"{path}.bak.{int(time.time())}")
+    add = [f"schema={SCHEMA}"]
+    mapping = [("quality", "video.quality"), ("mouse_speed", "input.mouse_speed")]
+    for old, new in mapping:
+        for k, v, r, d in pairs:
+            if k == old and new not in have:
+                add.append(f"{new}={v}")
+    # width/height -> viewport
+    w = next((v for k, v, r, d in pairs if k == "width"), None)
+    h = next((v for k, v, r, d in pairs if k == "height"), None)
+    if w and h and "video.viewport" not in have:
+        add.append(f"video.viewport={w}x{h}")
+    # .stick -> mouse_stick（只读兼容，不写死）
+    lines = [r for k, v, r, d in pairs if k != "schema"]
+    atomic_write(path, add + lines)
+    print("migrated")
+
+def main():
+    if len(sys.argv) < 2: die("命令: get|dump|set|migrate")
+    cmd, args = sys.argv[1], sys.argv[2:]
+    {"get": cmd_get, "dump": cmd_dump, "set": cmd_set, "migrate": cmd_migrate}.get(cmd, lambda a: die("未知命令"))(args)
+
+if __name__ == "__main__":
+    main()

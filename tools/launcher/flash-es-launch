@@ -1,0 +1,9 @@
+#!/bin/bash
+# ES 入口：把游戏启动放到独立 systemd 单元，避免停 ES 时把自己杀掉
+ROM="${1:?}"
+STEM="$(basename "$ROM")"; STEM="${STEM%.*}"
+UNIT="flash-game-$(printf '%s' "$STEM" | tr -c 'A-Za-z0-9_.-' '_')"
+systemctl reset-failed "$UNIT" 2>/dev/null
+systemd-run --unit="$UNIT" --collect --description="Flash: $STEM" \
+  /usr/local/bin/treeos-flash "$ROM" >/dev/null 2>&1
+exit 0

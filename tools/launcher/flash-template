@@ -1,0 +1,187 @@
+#!/usr/bin/env python3
+"""flash-template: 把控制模板编译成一次会话的 profile/env。
+
+用法: flash-template <swf> <session-dir>
+输出: <session-dir>/session.env、session.profile、session.json
+不写持久 profile；首次确认/设置页保存才写。
+"""
+import os, sys, json, hashlib, re
+
+PROF_DIR = "/roms/ports/rufflehandheld/profiles"
+CUSTOM = os.path.join(PROF_DIR, "custom")
+
+TEMPLATES = {
+    "arrows": {
+        "keyboard_stick": "left", "pointer": "none",
+        "dpad": (38, 40, 37, 39), "click_left": "none", "click_right": "none",
+    },
+    "wasd": {
+        "keyboard_stick": "left", "pointer": "none",
+        "dpad": (87, 83, 65, 68), "click_left": "none", "click_right": "none",
+    },
+    "pointer": {
+        "keyboard_stick": "none", "pointer": "left",
+        "dpad": None, "click_left": "south", "click_right": "east",
+    },
+    "arrows_pointer": {
+        "keyboard_stick": "left", "pointer": "right",
+        "dpad": (38, 40, 37, 39), "click_left": "r2", "click_right": "l2",
+    },
+    "wasd_pointer": {
+        "keyboard_stick": "left", "pointer": "right",
+        "dpad": (87, 83, 65, 68), "click_left": "r2", "click_right": "l2",
+    },
+}
+DEFAULT_TEMPLATE = "arrows_pointer"
+FACE = {"south": 74, "east": 75, "west": 76, "north": 85,
+        "left_trigger": 73, "right_trigger": 79,
+        "left_trigger2": 0, "right_trigger2": 0,
+        "start": 13, "select": 27}
+
+def norm(s):
+    s = s.lower()
+    s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
+    return s
+
+def read_pairs(path):
+    out = {}
+    if not os.path.exists(path):
+        return out
+    for raw in open(path, encoding="utf-8", errors="replace"):
+        s = raw.strip()
+        if not s or s.startswith("#") or "=" not in s:
+            continue
+        k, v = s.split("=", 1)
+        out[k.strip()] = v.strip()
+    return out
+
+def aliases_of(prof):
+    v = prof.get("aliases", "")
+    return [norm(x) for x in re.split(r"[,|]", v) if x.strip()]
+
+def resolve(stem):
+    n = norm(stem)
+    cand = os.path.join(CUSTOM, n + ".profile")
+    if os.path.exists(cand):
+        return cand, "custom-exact"
+    best = None
+    if os.path.isdir(CUSTOM):
+        for f in sorted(os.listdir(CUSTOM)):
+            if not f.endswith(".profile"):
+                continue
+            p = read_pairs(os.path.join(CUSTOM, f))
+            if n in aliases_of(p):
+                best = os.path.join(CUSTOM, f)
+                break
+    if best:
+        return best, "custom-alias"
+    for d in (PROF_DIR, CUSTOM):
+        cand = os.path.join(d, n + ".profile")
+        if os.path.exists(cand):
+            return cand, "bundled"
+    for cand in (os.path.join(CUSTOM, "default.profile"),
+                 os.path.join(PROF_DIR, "default.profile")):
+        if os.path.exists(cand):
+            return cand, "default"
+    return None, "none"
+
+def template_of(prof, source=""):
+    t = prof.get("control.template", "").strip()
+    if t in TEMPLATES:
+        return t, prof.get("control.source", "user")
+    # 没有游戏专属 profile 时，不沿用 default.profile 的旧 pointer 配置
+    if source == "default":
+        return DEFAULT_TEMPLATE, "default"
+    # legacy heuristic: explicit mouse_click/stick
+    if prof.get("mouse_click") not in (None, "", "none") and prof.get("mouse_stick") == "left":
+        return "pointer", "legacy"
+    if prof.get("dpad_up") in ("87", "83", "65", "68"):
+        return ("wasd_pointer" if prof.get("mouse_stick") == "right" else "wasd"), "legacy"
+    if prof.get("dpad_up") in ("38", "40", "37", "39"):
+        return ("arrows_pointer" if prof.get("mouse_stick") == "right" else "arrows"), "legacy"
+    return DEFAULT_TEMPLATE, "default"
+
+def main():
+    if len(sys.argv) < 3:
+        sys.exit("usage: flash-template <swf> <session-dir>")
+    swf, sdir = sys.argv[1], sys.argv[2]
+    stem = os.path.splitext(os.path.basename(swf))[0]
+    prof_path, source = resolve(stem)
+    prof = read_pairs(prof_path) if prof_path else {}
+    tpl, tpl_src = template_of(prof, source)
+    d = TEMPLATES[tpl]
+
+    # 基本配置：profile 覆盖 defaults
+    backend = prof.get("runtime.backend", prof.get("backend", "auto"))
+    if backend == "a": backend = "classic"
+    if backend == "b": backend = "enhanced"
+    quality = prof.get("video.quality", prof.get("quality", "low"))
+    view = prof.get("video.viewport", "auto")
+    if view == "auto" and prof.get("width") and prof.get("height"):
+        view = f'{prof["width"]}x{prof["height"]}'
+    width, height = (view.split("x") if "x" in view else ("640", "480"))
+    speed = prof.get("input.mouse_speed", prof.get("mouse_speed", "6"))
+    try:
+        speed = str(max(1, min(10, int(speed))))
+    except ValueError:
+        speed = "6"
+
+    # 鼠标键可在 profile 覆盖；默认按模板。常用动作优先 ABXY。
+    click_left = prof.get("control.mouse_left", d["click_left"])
+    click_right = prof.get("control.mouse_right", d["click_right"])
+    keys = dict(FACE)
+    if d["dpad"]:
+        keys.update(dict(zip(("dpad_up", "dpad_down", "dpad_left", "dpad_right"), d["dpad"])))
+    # 用户显式按键优先；一个手柄键可以是一组键（"74,32"）
+    explicit = set()
+    for k in list(keys):
+        if k not in prof:
+            continue
+        raw = prof[k].strip()
+        explicit.add(k)
+        vals = []
+        for tok in re.split(r"[,| ]+", raw):
+            if not tok:
+                continue
+            try:
+                vals.append(int(tok))
+            except ValueError:
+                pass
+        if vals:
+            keys[k] = ",".join(str(v) for v in vals)
+        else:
+            keys.pop(k, None)
+    # 只是模板默认、用户没显式写键位的鼠标键，不额外发键盘
+    for c in (click_left, click_right):
+        if c in keys and c not in explicit:
+            keys.pop(c, None)
+
+    os.makedirs(sdir, exist_ok=True)
+    profile_lines = [f"schema=3", f"source={source}", f"template={tpl}",
+                     f"template.source={tpl_src}", f"backend={backend}",
+                     f"width={width}", f"height={height}", f"quality={quality}",
+                     f"pointer={d['pointer']}", f"keyboard_stick={d['keyboard_stick']}",
+                     f"click_left={click_left}", f"click_right={click_right}",
+                     f"mouse_speed={speed}"]
+    for k, v in keys.items():
+        if v: profile_lines.append(f"{k}={v}")
+    open(os.path.join(sdir, "session.profile"), "w").write("\n".join(profile_lines) + "\n")
+
+    env = {
+        "SESSION_DIR": sdir, "SWF": swf, "STEM": stem,
+        "PROFILE": prof_path or "", "PROFILE_SOURCE": source,
+        "TEMPLATE": tpl, "TEMPLATE_SOURCE": tpl_src,
+        "BACKEND": backend, "QUALITY": quality, "WIDTH": width, "HEIGHT": height,
+        "POINTER": d["pointer"], "KEYBOARD_STICK": d["keyboard_stick"],
+        "CLICK_LEFT": click_left, "CLICK_RIGHT": click_right, "MOUSE_SPEED": speed,
+        "CONFIRMED": prof.get("control.confirmed", "0"),
+        "SHA256": hashlib.sha256(open(swf, "rb").read()).hexdigest(),
+    }
+    with open(os.path.join(sdir, "session.env"), "w") as f:
+        for k, v in env.items():
+            f.write(f'{k}="{v}"\n')
+    json.dump(env, open(os.path.join(sdir, "session.json"), "w"), ensure_ascii=False, indent=2)
+    print(tpl)
+
+if __name__ == "__main__":
+    main()

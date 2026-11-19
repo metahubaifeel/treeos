@@ -34,3 +34,17 @@ TreeOS 仓库里包含来自第三方的代码。这里记录来源、许可证�
 
 本仓库**不包含**任何 ROM、BIOS、SWF 游戏文件、音频、字体或汉化包。
 相关资源的获取与导入由用户自行负责，且必须遵守其原始授权。
+
+## 5. stb_image / stb_truetype（public domain / MIT）
+
+- **文件**：`tools/launcher/stb_image.h`、`tools/launcher/stb_truetype.h`
+- **来源**：nothings/stb（Sean Barrett / RAD Game Tools）
+- **许可证**：public domain，或 MIT（双许可，文件头保留原始声明）
+- **用途**：设置界面的 PNG 图标解码与 TrueType 中文渲染
+
+## 6. 设置界面图标（CC0）
+
+- **文件**：`tools/launcher/icons/*.png`（ABXY、方向键、鼠标左右键）
+- **来源**：Kenney *Input Prompts* 图标包（https://kenney.nl/assets/input-prompts）
+- **许可证**：CC0 1.0（公共领域），原始许可文本见 `tools/launcher/icons/LICENSE.txt`
+- **我们改了什么**：仅按实机配色对白色 ABXY 图标做运行时染色，未改动素材文件

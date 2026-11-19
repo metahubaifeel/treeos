@@ -1,0 +1,46 @@
+#!/bin/bash
+# 单次兼容测试：flash-compat-run <swf> <a|b> [seconds]
+set -u
+SWF="$1"; BACKEND="$2"; DUR="${3:-60}"
+STEM="$(basename "$SWF" .swf)"
+PROF="/roms/ports/rufflehandheld/profiles/custom/$STEM.profile"
+OUT=/tmp/compat.csv
+[ -f "$OUT" ] || echo "sample,backend,alive_sec,mem_min_kb,gpu_to,oom,shot,rc" > "$OUT"
+
+/usr/local/bin/flashcfg set "$PROF" runtime.backend "$BACKEND" >/dev/null 2>&1
+
+/usr/local/bin/stop-flash
+systemctl stop treeos-emulationstation 2>/dev/null
+sleep 1
+G0=$(dmesg | grep -c "gpu sched timeout")
+M0=$(awk '/MemAvailable/{print $2}' /proc/meminfo)
+setsid /usr/local/bin/treeos-flash "$SWF" </dev/null >/tmp/compat-$STEM-$BACKEND.log 2>&1 &
+PID=$!
+ALIVE=0; MEMIN=$M0
+# 最多等 20 秒让后端起来
+UP=0
+for w in $(seq 1 20); do
+  sleep 1
+  if pgrep -x ruffle_desktop >/dev/null || pgrep -f ruffle-native >/dev/null; then UP=1; break; fi
+done
+[ "$UP" -eq 1 ] || { echo "$STEM,$BACKEND,0,$MEMIN,$(( $(dmesg | grep -c 'gpu sched timeout') - G0)),0,-,LAUNCH_FAIL" >> "$OUT"; /usr/local/bin/stop-flash; systemctl start treeos-emulationstation 2>/dev/null; exit 0; }
+for i in $(seq 1 "$DUR"); do
+  sleep 1
+  if pgrep -x ruffle_desktop >/dev/null || pgrep -f ruffle-native >/dev/null; then ALIVE=$i; else break; fi
+  M=$(awk '/MemAvailable/{print $2}' /proc/meminfo)
+  [ "$M" -lt "$MEMIN" ] && MEMIN=$M
+done
+G1=$(dmesg | grep -c "gpu sched timeout")
+OOM=$(dmesg | grep -c "Killed process")
+SHOT=-
+if pgrep -x weston >/dev/null; then
+  export XDG_RUNTIME_DIR=/run/ruffle-weston
+  export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR" 2>/dev/null | grep -E "^wayland-[0-9]+$" | head -1)
+  cd /tmp && weston-screenshooter >/dev/null 2>&1 && SHOT=$(ls -t /tmp/wayland-screenshot*.png 2>/dev/null | head -1)
+fi
+RC=$(systemctl show -p ExecMainStatus --value "flash-game-$STEM" 2>/dev/null)
+echo "$STEM,$BACKEND,$ALIVE,$MEMIN,$((G1-G0)),$OOM,${SHOT##*/},${RC:-NA}" >> "$OUT"
+/usr/local/bin/stop-flash
+systemctl reset-failed treeos-emulationstation 2>/dev/null
+systemctl start treeos-emulationstation 2>/dev/null
+sleep 1

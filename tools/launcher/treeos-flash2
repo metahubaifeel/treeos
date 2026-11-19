@@ -1,0 +1,86 @@
+#!/bin/bash
+# TreeOS 新版 Flash 启动器：Weston(kiosk) + ruffle_desktop + profile 键位
+set -u
+SWF="${1:?usage: treeos-flash2 <swf>}"
+PROF_DIR=/roms/ports/rufflehandheld/profiles/custom
+STEM="$(basename "$SWF" .swf)"
+if [ -n "${FLASH_SESSION_ENV:-}" ] && [ -f "$FLASH_SESSION_ENV" ]; then
+  # shellcheck disable=SC1090
+  . "$FLASH_SESSION_ENV"
+  PROF="$SESSION_DIR/session.profile"
+else
+  PROF="$PROF_DIR/$STEM.profile"
+  [ -f "$PROF" ] || PROF="$PROF_DIR/default.profile"
+fi
+BIN=/opt/ruffle-new/ruffle_desktop
+export SDL_GAMECONTROLLERCONFIG="19000000010000008811000088010000,r36s_Gamepad,a:b0,b:b1,x:b2,y:b3,back:b8,guide:b10,start:b9,leftstick:b11,rightstick:b12,leftshoulder:b4,rightshoulder:b5,dpup:b13,dpdown:b14,dpleft:b15,dpright:b16,leftx:a0,lefty:a1,rightx:a2,righty:a3,lefttrigger:b6,righttrigger:b7,platform:Linux,"
+export XDG_RUNTIME_DIR=/run/ruffle-weston
+
+vk2name() {
+  case "$1" in
+    13) echo return;; 27) echo escape;; 32) echo space;;
+    37) echo left;; 38) echo up;; 39) echo right;; 40) echo down;;
+    16) echo shift;; 17) echo control;; 18) echo alt;;
+    48) echo key0;; 49) echo key1;; 50) echo key2;; 51) echo key3;; 52) echo key4;;
+    53) echo key5;; 54) echo key6;; 55) echo key7;; 56) echo key8;; 57) echo key9;;
+    65) echo a;; 66) echo b;; 67) echo c;; 68) echo d;; 69) echo e;; 70) echo f;;
+    71) echo g;; 72) echo h;; 73) echo i;; 74) echo j;; 75) echo k;; 76) echo l;;
+    77) echo m;; 78) echo n;; 79) echo o;; 80) echo p;; 81) echo q;; 82) echo r;;
+    83) echo s;; 84) echo t;; 85) echo u;; 86) echo v;; 87) echo w;; 88) echo x;;
+    89) echo y;; 90) echo z;;
+    *) echo "";;
+  esac
+}
+
+args=()
+while IFS='=' read -r k v; do
+  # 多键只把第一个交给 -B；其余由 padinput 发
+  v=${v%%,*}
+  case "$k" in
+    south)       n=$(vk2name "$v"); [ -n "$n" ] && args+=(-B "south=$n");;
+    east)        n=$(vk2name "$v"); [ -n "$n" ] && args+=(-B "east=$n");;
+    west)        n=$(vk2name "$v"); [ -n "$n" ] && args+=(-B "west=$n");;
+    north)       n=$(vk2name "$v"); [ -n "$n" ] && args+=(-B "north=$n");;
+    dpad_up)     n=$(vk2name "$v"); [ -n "$n" ] && args+=(-B "d-pad-up=$n");;
+    dpad_down)   n=$(vk2name "$v"); [ -n "$n" ] && args+=(-B "d-pad-down=$n");;
+    dpad_left)   n=$(vk2name "$v"); [ -n "$n" ] && args+=(-B "d-pad-left=$n");;
+    dpad_right)  n=$(vk2name "$v"); [ -n "$n" ] && args+=(-B "d-pad-right=$n");;
+    left_trigger)  n=$(vk2name "$v"); [ -n "$n" ] && args+=(-B "left-trigger=$n");;
+    left_trigger2) n=$(vk2name "$v"); [ -n "$n" ] && args+=(-B "left-trigger2=$n");;
+    right_trigger) n=$(vk2name "$v"); [ -n "$n" ] && args+=(-B "right-trigger=$n");;
+    right_trigger2) n=$(vk2name "$v"); [ -n "$n" ] && args+=(-B "right-trigger2=$n");;
+    start)       n=$(vk2name "$v"); [ -n "$n" ] && args+=(-B "start=$n");;
+    select)      n=$(vk2name "$v"); [ -n "$n" ] && args+=(-B "select=$n");;
+  esac
+done < "$PROF"
+
+if [ -z "${WIDTH:-}" ] || [ -z "${HEIGHT:-}" ]; then
+  eval "$(/usr/local/bin/flashcfg dump --shell "$PROF" 2>/dev/null)" 2>/dev/null || true
+fi
+QUALITY="${QUALITY:-low}"; WW="${WIDTH:-640}"; HH="${HEIGHT:-480}"
+systemctl stop treeos-emulationstation 2>/dev/null
+sleep 1
+mkdir -p "$XDG_RUNTIME_DIR"; chmod 700 "$XDG_RUNTIME_DIR"
+pkill -9 -x weston 2>/dev/null; sleep 1
+rm -f "$XDG_RUNTIME_DIR"/wayland-*
+setsid weston --backend=drm-backend.so --shell=kiosk --debug >/tmp/weston-flash.log 2>&1 &
+WPID=$!
+for i in $(seq 1 30); do pgrep -x weston >/dev/null && ls "$XDG_RUNTIME_DIR"/wayland-[0-9]* >/dev/null 2>&1 && break; sleep 0.5; done
+export XCURSOR_THEME=Adwaita
+export XCURSOR_SIZE=24
+export WAYLAND_DISPLAY=$(ls "$XDG_RUNTIME_DIR" | grep -E "^wayland-[0-9]+$" | head -1)
+FLASH_SESSION_ENV="${FLASH_SESSION_ENV:-}" setsid python3 /usr/local/bin/padinput.py "$SWF" >/tmp/padinput.log 2>&1 &
+MPID=$!
+"$BIN" -g gl --no-gui --width "$WW" --height "$HH" --quality "$QUALITY" "$SWF" >/tmp/treeos-flash2.log 2>&1
+RC=$?
+kill "$MPID" 2>/dev/null; kill "$WPID" 2>/dev/null; pkill -9 -x weston 2>/dev/null
+sync
+if [ -f /tmp/flash-settings.request ]; then
+  rm -f /tmp/flash-settings.request
+  export FLASH_RETURN_SH=/usr/local/bin/flash-return2.sh
+  systemctl stop treeos-emulationstation 2>/dev/null
+  exec /opt/flashmenu/flash-mapper "$STEM" "$SWF"
+fi
+systemctl start game-keys.service treeos-keys.service 2>/dev/null
+systemctl start treeos-emulationstation 2>/dev/null
+exit $RC

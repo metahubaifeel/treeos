@@ -1,0 +1,84 @@
+#!/bin/bash
+# treeos-flash: 统一 Flash 入口（会话锁 + 模板编译 + 输入互斥）
+set -u
+SWF="${1:?usage: treeos-flash <swf>}"
+STEM="$(basename "$SWF" .swf)"
+CFG=/usr/local/bin/flashcfg
+TPL=/usr/local/bin/flash-template
+RUN=/run/treeos-flash
+LOCK=$RUN/session.lock
+SESS="$RUN/$STEM-$$"
+mkdir -p "$RUN"
+
+log() { echo "[treeos-flash] $*" >> /tmp/treeos-flash.log; }
+
+# 会话锁
+exec 9>"$LOCK"
+if ! flock -n 9; then
+  log "another flash session holds $LOCK; refusing"
+  echo "flash: 已有 Flash 会话在运行" >&2
+  exit 75
+fi
+echo "{\"pid\":$$,\"stem\":\"$STEM\",\"swf\":\"$SWF\",\"started\":$(date +%s)}" > "$RUN/session.json"
+
+# 输入互斥：Flash 会话期间停掉常驻键守护
+systemctl stop game-keys.service treeos-keys.service 2>/dev/null || true
+pkill -x padinput 2>/dev/null || true
+pkill -f 'padinput\.py' 2>/dev/null || true
+pkill -f 'gptokeyb[2]' 2>/dev/null || true
+pkill -f 'stickmouse\.py' 2>/dev/null || true
+pkill -f 'padmerge\.py' 2>/dev/null || true
+
+cleanup() {
+  local rc=$?
+  systemctl start game-keys.service treeos-keys.service 2>/dev/null || true
+  rm -f /tmp/flash-settings.request
+  log "session end rc=$rc"
+  exit $rc
+}
+trap cleanup EXIT INT TERM
+
+# 模板编译
+"$TPL" "$SWF" "$SESS" >/dev/null || {
+  log "template compile failed; continuing with default env"
+  mkdir -p "$SESS"
+}
+export FLASH_SESSION_ENV="$SESS/session.env"
+# shellcheck disable=SC1090
+. "$FLASH_SESSION_ENV"
+
+BACKEND="${BACKEND:-auto}"
+log "template=$TEMPLATE source=$PROFILE_SOURCE backend=$BACKEND"
+
+run_b() {
+  log "backend=enhanced $SWF"
+  FLASH_SESSION_ENV="$FLASH_SESSION_ENV" /usr/local/bin/treeos-flash2 "$SWF"
+  return $?
+}
+
+run_a() {
+  log "backend=classic $SWF"
+  /usr/local/bin/stop-flash
+  systemctl stop treeos-emulationstation 2>/dev/null
+  sleep 1
+  FLASH_SESSION_ENV="$FLASH_SESSION_ENV" timeout 3600 /bin/bash /roms/ports/rufflehandheld/runtime/es-launch.sh --rom-root /roms "$SWF"
+  local rc=$?
+  systemctl start treeos-emulationstation 2>/dev/null
+  return $rc
+}
+
+case "$BACKEND" in
+  classic) run_a; exit $? ;;
+  enhanced) run_b; exit $? ;;
+  auto|*)
+    start=$(date +%s)
+    run_b
+    rc=$?
+    end=$(date +%s)
+    if [ $rc -ne 0 ] && [ $((end-start)) -lt 20 ] && ! pgrep -x ruffle_desktop >/dev/null && ! pgrep -x weston >/dev/null; then
+      log "enhanced failed rc=$rc in $((end-start))s, fallback to classic"
+      run_a
+      exit $?
+    fi
+    exit $rc ;;
+esac

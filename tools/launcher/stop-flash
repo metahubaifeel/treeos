@@ -1,0 +1,13 @@
+#!/bin/bash
+pkill -x ruffle_desktop 2>/dev/null
+pkill -x flash-mapper 2>/dev/null
+pkill -f ruffle-native 2>/dev/null
+pkill -f es-launch.sh 2>/dev/null
+pkill -f gptokeyb2 2>/dev/null
+pkill -x weston 2>/dev/null
+pkill -f padinput.py 2>/dev/null
+sleep 1
+pkill -9 -x weston 2>/dev/null
+pkill -9 -f ruffle-native 2>/dev/null
+pkill -9 -f padinput.py 2>/dev/null
+exit 0
