@@ -2,7 +2,7 @@
 
 English | [简体中文](README.zh-CN.md)
 
-**A mainline Linux system for the R36S handheld.** Linux 6.12, Debian 13, open panfrost GPU driver, our own DSI panel driver — built so the device can follow upstream instead of being pinned to a 2016 vendor kernel.
+**A mainline Linux system for the R36S handheld.** Linux 6.15.6 (on hardware; 6.12 rollback available), Debian 13, open panfrost GPU driver, our own DSI panel driver — built so the device can follow upstream instead of being pinned to a 2016 vendor kernel.
 
 ![R36S handheld running TreeOS](assets/r36s-black-front-display.webp)
 
@@ -14,12 +14,23 @@ TreeOS replaces the base:
 
 | Layer | Vendor system | TreeOS |
 |---|---|---|
-| Kernel | 4.4.189 (2016 BSP) | **mainline 6.12** |
+| Kernel | 4.4.189 (2016 BSP) | **mainline 6.15.6** (6.12 rollback) |
 | Userland | Ubuntu 19.10, glibc 2.30 | **Debian 13** |
 | GPU | closed Mali blob | **panfrost / Mesa 25** (GL ES 3.1) |
 | Display | vendor panel driver | **our own DSI panel driver** |
 | Frontend | EmulationStation | EmulationStation (kept) |
 | Emulator | vendor RetroArch (RGA-dependent) | **Debian RetroArch 1.20** |
+
+## Preview image (0.1-preview)
+
+**[Download TreeOS 0.1-preview (R36S)](https://github.com/metahubaifeel/treeos/releases/tag/v0.1-preview)**
+— 16 GiB image, ~1.6 GB compressed; R36S only (RK3326, 1 GB).
+
+- **Preview: author-side cold-boot regression on real hardware is still pending**
+- No ROMs/SWFs/BIOS/saves included; put games in `EASYROMS/import/` or the platform folders
+- **Security**: default accounts `tree` / `root`, password `tree` for both, SSH enabled.
+  On first boot run `passwd`, `sudo passwd -l root`, `sudo systemctl disable --now ssh`;
+  do not expose the device to public networks. See `SECURITY.txt` in the release.
 
 ## What works (verified on hardware)
 
@@ -29,14 +40,17 @@ TreeOS replaces the base:
   Arch R v3.0.3 combines the ADC stick and GPIO buttons into one `r36s_Gamepad`
   (ABS ±1800, 17 standard keys); ES and RetroArch use it directly, no userspace bridge
 - RetroArch 1.20: GBA defaults to `mgba` (the `gpsp` core exits immediately on this unit)
-- Flash: Ruffle native runtime; 20 samples launch and survive 20 seconds with no OOM/panic.
-  Bleach vs Naruto reaches actual combat and is playable (no long-run stability claim yet).
-  Per-game profiles and mouse click are experimental
+- Flash: enhanced (Weston + Ruffle desktop) and classic (frozen core) runtimes;
+  Gold Miner, BvS 2.6, Zaomeng Xiyou and Zombie Crisis 3 playable;
+  new settings UI: mouse buttons, 2-second hold-to-bind, multi-key per pad button (`south=74,32`)
+- Game importer: files dropped in `/roms/import/` are sorted by extension before ES starts;
+  arcade zips are kept as-is
 - zram swap, WiFi, 21 rotating boot images
-- A 16 GiB flashable image has been built (acceptance on a fresh card in progress)
+- 0.1-preview image published; real-card cold-boot regression still pending
 
-Not verified yet: N64/PSP performance, save reliability across repeated power cycles,
-other board revisions, OTA, and full Flash playability (per-game validation ongoing).
+Not verified yet: cold boot of the 0.1-preview image, N64/PSP performance,
+save reliability across repeated power cycles, RK3566/RK3562 boards, OTA,
+and full Flash playability (per-game validation ongoing).
 
 ## Photos and video
 
@@ -62,6 +76,7 @@ kernel/   Kernel config, patches (incl. the Arch R GPL driver port), build scrip
 dts/      Device tree and the DSI panel driver
 scripts/  Image build, backup, flashing helpers
 config/   ES/RetroArch input mappings and system config snippets
+tools/    Launcher, settings UI and game importer sources (tools/launcher)
 devlog/   Dated development notes
 assets/   Photos taken on the unit
 ```
@@ -71,9 +86,9 @@ assets/   Photos taken on the unit
 The kernel is cross-compiled on a Linux host for aarch64:
 
 ```bash
-# kernel/config-6.12-r36s is the exact config used on hardware
+# kernel/config-6.12-r36s is the 6.12 baseline; hardware currently runs 6.15.6 v5
 # see kernel/build.sh for the toolchain layout
-SRC=path/to/linux-6.12 bash kernel/build.sh
+SRC=path/to/linux-6.15.6 bash kernel/build.sh
 ```
 
 The disk image can be assembled from a running card's rootfs:

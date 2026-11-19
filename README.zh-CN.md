@@ -1,6 +1,6 @@
 # TreeOS
 
-**给 R36S 掌机的主线 Linux 系统。** Linux 6.12 + Debian 13 + 开源 panfrost GPU 驱动 + 自己写的 DSI 面板驱动——目标是让这台机器能跟着上游走，而不是被锁在 2016 年的厂商内核上。
+**给 R36S 掌机的主线 Linux 系统。** Linux 6.15.6（已上机，6.12 可回滚）+ Debian 13 + 开源 panfrost GPU 驱动 + 自己写的 DSI 面板驱动——目标是让这台机器能跟着上游走，而不是被锁在 2016 年的厂商内核上。
 
 [English](README.md) | 简体中文
 
@@ -14,12 +14,23 @@ TreeOS 换掉地基：
 
 | 层 | 厂商系统 | TreeOS |
 |---|---|---|
-| 内核 | 4.4.189（2016 BSP） | **主线 6.12** |
+| 内核 | 4.4.189（2016 BSP） | **主线 6.15.6**（6.12 可回滚） |
 | 用户态 | Ubuntu 19.10，glibc 2.30 | **Debian 13** |
 | GPU | 闭源 Mali blob | **panfrost / Mesa 25**（GL ES 3.1） |
 | 显示 | 厂商面板驱动 | **自己写的 DSI 面板驱动** |
 | 前端 | EmulationStation | EmulationStation（保留） |
 | 模拟器 | 厂商 RetroArch（依赖 RGA） | **Debian 官方 RetroArch 1.20** |
+
+## 先行版镜像（0.1-preview）
+
+**[下载 TreeOS 0.1-preview（R36S）](https://github.com/metahubaifeel/treeos/releases/tag/v0.1-preview)**
+— 16 GiB 镜像，压缩约 1.6 GB；仅 R36S（RK3326，1GB）。
+
+- **预览版：尚未完成作者侧实卡冷启回归**
+- 不含任何 ROM/SWF/BIOS/存档；游戏放 `EASYROMS/import/` 或对应平台目录
+- **安全**：默认账号 `tree` / `root`，密码均为 `tree`，SSH 默认开启。
+  首次开机请执行 `passwd`、`sudo passwd -l root`、`sudo systemctl disable --now ssh`；
+  不要把机器暴露在公共网络。详见 Release 的 `SECURITY.txt`
 
 ## 已验证（真机）
 
@@ -29,14 +40,15 @@ TreeOS 换掉地基：
   ADC 摇杆 + GPIO 按键合并成一个 `r36s_Gamepad`（ABS ±1800、17 个标准键），
   ES / RetroArch 直接可用，不再需要用户态 `padmerge` 桥
 - RetroArch 1.20：GBA 默认 `mgba`（本机 `gpsp` 核心启动即退出，已记录）
-- Flash：Ruffle native 运行时；20 个样本可启动并存活 20 秒（无 OOM/panic）；
-  《死神 vs 火影》已实测进入对战并可操作（不承诺长时间稳定）；
-  逐游戏 profile 机制与鼠标点击为实验性
+- Flash：增强（Weston + Ruffle desktop）与经典（冻结核心）两条线；
+  黄金矿工、BvS 2.6、造梦西游、僵尸危机 3 已实测；
+  新设置界面支持鼠标左右键、按住 2 秒绑定、一柄多键（如 `south=74,32`）
+- 游戏导入器：`/roms/import/` 开机前按扩展名归档；街机 zip 保持原样
 - zram、WiFi、21 张开机轮播图
-- 16 GiB 可刷写镜像已构建（新卡验收进行中）
+- 0.1-preview 镜像已发布；实卡冷启回归待补
 
-尚未验证：N64/PSP 性能、反复开关机后的存档可靠性、其他板型、OTA、
-Flash 全量可玩性（逐游戏验证仍在进行）。
+尚未验证：0.1-preview 的实卡冷启、N64/PSP 性能、反复开关机后的存档可靠性、
+RK3566/RK3562 板型、OTA、Flash 全量可玩性（逐游戏验证仍在进行）。
 
 ## 实拍与视频
 
@@ -62,6 +74,7 @@ kernel/   内核配置、补丁（含 Arch R GPL 驱动移植）、构建脚本�
 dts/      设备树 + DSI 面板驱动
 scripts/  镜像构建、备份、刷机脚本
 config/   ES/RetroArch 输入映射与系统配置片段
+tools/    启动器、设置 UI、游戏导入器源码（tools/launcher）
 devlog/   按日期记录的开发日志
 assets/   真机实拍图
 ```
@@ -71,10 +84,10 @@ assets/   真机实拍图
 内核在 Linux 主机上交叉编译：
 
 ```bash
-# kernel/config-6.12-r36s 是真机使用的完整配置
+# kernel/config-6.12-r36s 是 6.12 基线；当前真机为 6.15.6 v5
 # 工具链布局见 kernel/build.sh
 export TREEOS_ROOT=$PWD
-SRC=path/to/linux-6.12 bash kernel/build.sh
+SRC=path/to/linux-6.15.6 bash kernel/build.sh
 ```
 
 补丁应用顺序：`kernel/patches/0001-*` → `0004-input-drivers-archr.patch` →
