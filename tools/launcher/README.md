@@ -43,11 +43,19 @@ gcc -O2 -I. -o flash-mapper flash-mapper-main.c \
 
 | 放进去 | 结果 |
 |---|---|
-| `xxx.gba` / `.gb` / `.nes` / `.sfc` / `.md` / `.n64` / `.cue` … | 移到 `/roms/<对应核心目录>/` |
-| `xxx.swf`（单文件） | 移到 `/roms/flash/`，ES 的 Flash 分类直接出现 |
-| 一个文件夹 / zip，里面有 `.swf` 和素材 | 整包移到 `/roms/flash/<名字>/`，自动找入口 SWF，生成 `/roms/ports/<名字>.sh` |
-| 不认识的类型 | 留在 `import/`，写进 `/roms/import-report.txt` |
+| `xxx.gba` / `.gb` / `.gbc` | 移到 `gba/` `gb/` `gbc/` |
+| `.nes` / `.sfc` `.smc` / `.md` `.gen` | `nes/` `snes/` `megadrive/` |
+| `.n64` `.z64` `.v64` / `.nds` / `.gg` | `n64/` `nds/` `gamegear/` |
+| `.cue`+`.bin` / `.chd` / `.iso` `.img` | `psx/`（多文件整包进子目录） |
+| `.cso` / `.pbp` | `psp/` |
+| `xxx.swf`（单文件） | 移到 `flash/`，ES 的 Flash 分类直接出现 |
+| 一个文件夹 / zip，里面有 `.swf` 和素材 | 整包移到 `flash/<名字>/`，自动找入口 SWF，生成 `ports/<名字>.sh` |
+| 含已知主机 ROM 的 zip | 解压后按扩展名归档 |
+| 没有已知主机 ROM 的 zip | 当作街机包，**zip 原样**移到 `arcade/` |
+| `import/psp/` `import/psx/` `import/arcade/` 等平台名子目录 | 整包原样进对应平台，不猜扩展名（解决 `.iso`/`.pbp` 歧义） |
+| 不认识的类型 | 留在 `import/`，写进 `import-report.txt` |
 
+- 也可以完全跳过导入器：卡插电脑后直接进 `gba/`、`snes/`、`psp/` 等目录放文件
 - 不覆盖同名文件；已存在会跳过并在报告里列出
 - Windows 中文 zip 的 GBK 文件名会自动还原
 - Flash 包首次启动可在设置界面按 FN 调键；模版默认 `arrows_pointer`

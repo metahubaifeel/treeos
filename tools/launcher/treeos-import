@@ -32,13 +32,37 @@ ROM_EXT = {
     ".sfc": "snes", ".smc": "snes",
     ".md": "megadrive", ".gen": "megadrive",
     ".n64": "n64", ".z64": "n64", ".v64": "n64",
-    ".cue": "psx", ".chd": "psx", ".pbp": "psx",
-    ".nds": "nds", ".3ds": None,
+    ".cue": "psx", ".chd": "psx",
+    ".iso": "psx", ".img": "psx",
+    ".cso": "psp", ".pbp": "psp",
+    ".nds": "nds",
     ".pce": "pcengine", ".ws": "wonderswan", ".wsc": "wonderswancolor",
     ".ngp": "ngp", ".ngc": "ngpc",
     ".32x": "sega32x", ".sms": "mastersystem", ".gg": "gamegear",
     ".a26": "atari2600", ".a78": "atari7800",
     ".lnx": "atarilynx", ".vb": "virtualboy",
+}
+
+# import/ 下用平台名做子目录时，整包按这个平台放（解决 .iso/.pbp 歧义）
+PLATFORM_ALIASES = {
+    "gba": "gba", "gb": "gb", "gbc": "gbc",
+    "nes": "nes", "fc": "nes", "famicom": "nes",
+    "snes": "snes", "sfc": "snes", "superfamicom": "snes",
+    "md": "megadrive", "megadrive": "megadrive", "genesis": "megadrive",
+    "gg": "gamegear", "gamegear": "gamegear",
+    "nds": "nds", "n64": "n64",
+    "arcade": "arcade", "mame": "arcade", "fbneo": "arcade",
+    "psx": "psx", "ps1": "psx", "ps": "psx", "playstation": "psx",
+    "psp": "psp", "ppsspp": "psp",
+}
+
+# 单文件就能直接丢进平台目录的扩展名
+SINGLE_FILE_ROM = {
+    ".gba", ".gb", ".gbc", ".nes", ".fds", ".sfc", ".smc",
+    ".md", ".gen", ".n64", ".z64", ".v64", ".nds", ".pce",
+    ".ws", ".wsc", ".ngp", ".ngc", ".32x", ".sms", ".gg",
+    ".a26", ".a78", ".lnx", ".vb", ".iso", ".cso", ".pbp",
+    ".chd", ".img",
 }
 FLASH_ENTRY_NAMES = ("index.swf", "main.swf", "start.swf",
                      "game.swf", "loader.swf", "play.swf")
@@ -169,7 +193,7 @@ def process_dir(folder, title):
             move_rom(os.path.join(folder, f), ext)
             moved = True
         elif ext == ".zip":
-            process_zip(os.path.join(folder, f), title)
+            process_zip(os.path.join(folder, f), os.path.splitext(f)[0])
             moved = True
         else:
             counts["unknown"] += 1
@@ -194,16 +218,98 @@ def extract_zip(zpath, tmp):
                 shutil.copyfileobj(src, dst)
 
 
+def platform_hint(name):
+    key = os.path.splitext(name)[0].lower().strip()
+    return PLATFORM_ALIASES.get(key) or PLATFORM_ALIASES.get(name.lower().strip())
+
+
+def install_platform_dir(folder, platform, title):
+    """import/<平台名>/ 整包按平台放，不猜扩展名。"""
+    dest_root = ensure_dir(os.path.join(ROOT, platform))
+    n = 0
+    for entry in sorted(os.listdir(folder)):
+        src = os.path.join(folder, entry)
+        dest = os.path.join(dest_root, safe(entry))
+        if os.path.exists(dest):
+            counts["skip"] += 1
+            log(f"[已存在] {platform}/{safe(entry)}")
+            continue
+        shutil.move(src, dest)
+        n += 1
+    counts["rom"] += n
+    log(f"[平台] {title}/ -> {platform}/（{n} 项）")
+
+
 def process_zip(zpath, title):
     tmp = tempfile.mkdtemp(prefix=".treeos-import-", dir=IMPORT)
     try:
+        with zipfile.ZipFile(zpath) as z:
+            names = [zip_name(i) for i in z.infolist() if not i.is_dir()]
+        low = [n.lower() for n in names]
+
+        # 1) 含 SWF：Flash 包
+        if any(n.endswith(".swf") for n in low):
+            extract_zip(zpath, tmp)
+            entries = [e for e in os.listdir(tmp) if not e.startswith(".")]
+            if len(entries) == 1 and os.path.isdir(os.path.join(tmp, entries[0])):
+                process_dir(os.path.join(tmp, entries[0]), title)
+            else:
+                process_dir(tmp, title)
+            os.unlink(zpath)
+            return
+
+        # 2) 选目标平台
+        target = None
+        if any(n.endswith(".cue") for n in low):
+            target = "psx"
+        else:
+            for n in low:
+                ext = os.path.splitext(n)[1]
+                if ext in ROM_EXT and ROM_EXT[ext]:
+                    target = ROM_EXT[ext]
+                    break
+
+        # 3) 没有已知平台：按街机处理，zip 原样保留
+        if target is None:
+            dest_root = ensure_dir(os.path.join(ROOT, "arcade"))
+            dest = os.path.join(dest_root, safe(title) + ".zip")
+            if os.path.exists(dest):
+                counts["skip"] += 1
+                log(f"[已存在] arcade/{safe(title)}.zip")
+            else:
+                shutil.move(zpath, dest)
+                counts["rom"] += 1
+                log(f"[街机] {safe(title)}.zip 原样保留 -> arcade/")
+            return
+
         extract_zip(zpath, tmp)
         entries = [e for e in os.listdir(tmp) if not e.startswith(".")]
-        # 单层同名文件夹展开
         if len(entries) == 1 and os.path.isdir(os.path.join(tmp, entries[0])):
-            process_dir(os.path.join(tmp, entries[0]), title)
+            src = os.path.join(tmp, entries[0])
         else:
-            process_dir(tmp, title)
+            src = tmp
+        files = [f for f in os.listdir(src) if os.path.isfile(os.path.join(src, f))]
+        dest_root = ensure_dir(os.path.join(ROOT, target))
+        # 多文件（cue+bin、PSP 目录结构）：整包放子目录
+        if len(files) != 1 or any(f.lower().endswith(".cue") for f in files):
+            dest = os.path.join(dest_root, safe(title))
+            if os.path.exists(dest):
+                counts["skip"] += 1
+                log(f"[已存在] {target}/{safe(title)}/")
+            else:
+                shutil.move(src, dest)
+                counts["rom"] += 1
+                log(f"[压缩包] {safe(title)} -> {target}/{safe(title)}/")
+        else:
+            f = files[0]
+            dest = os.path.join(dest_root, safe(f))
+            if os.path.exists(dest):
+                counts["skip"] += 1
+                log(f"[已存在] {target}/{safe(f)}")
+            else:
+                shutil.move(os.path.join(src, f), dest)
+                counts["rom"] += 1
+                log(f"[压缩包] {safe(f)} -> {target}/")
         os.unlink(zpath)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -225,7 +331,11 @@ def main():
         title = os.path.splitext(item)[0]
         try:
             if os.path.isdir(path):
-                process_dir(path, title)
+                hint = platform_hint(item)
+                if hint:
+                    install_platform_dir(path, hint, title)
+                else:
+                    process_dir(path, title)
                 if os.path.isdir(path) and not os.listdir(path):
                     os.rmdir(path)
             else:
