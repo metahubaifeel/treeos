@@ -24,7 +24,7 @@ TreeOS replaces the base:
 ## Preview image (0.1.1)
 
 **[Download TreeOS 0.1.1 (R36S)](https://github.com/metahubaifeel/treeos/releases/tag/v0.1.1)**
-— 16 GiB image, ~1.6 GB compressed; R36S only (RK3326, 1 GB).
+— 16 GiB image, ~1.7 GB compressed (1,695,873,568 bytes); R36S only (RK3326, 1 GB).
 
 - **Preview: author-side cold-boot regression on real hardware is still pending**
 - No ROMs/SWFs/BIOS/saves included; put games in `EASYROMS/import/` or the platform folders

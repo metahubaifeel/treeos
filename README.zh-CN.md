@@ -24,7 +24,7 @@ TreeOS 换掉地基：
 ## 先行版镜像（0.1.1）
 
 **[下载 TreeOS 0.1.1（R36S）](https://github.com/metahubaifeel/treeos/releases/tag/v0.1.1)**
-— 16 GiB 镜像，压缩约 1.6 GB；仅 R36S（RK3326，1GB）。
+— 16 GiB 镜像，压缩约 1.7 GB（1,695,873,568 字节）；仅 R36S（RK3326，1GB）。
 
 - **预览版：尚未完成作者侧实卡冷启回归**
 - 不含任何 ROM/SWF/BIOS/存档；游戏放 `EASYROMS/import/` 或对应平台目录
