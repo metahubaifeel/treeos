@@ -61,14 +61,18 @@ def aliases_of(prof):
 
 def resolve(stem):
     n = norm(stem)
-    cand = os.path.join(CUSTOM, n + ".profile")
-    if os.path.exists(cand):
-        return cand, "custom-exact"
+    # 先按原始文件名找（保留下划线/大小写），再按归一化名字找
+    for cand in (os.path.join(CUSTOM, stem + ".profile"),
+                 os.path.join(CUSTOM, n + ".profile")):
+        if os.path.exists(cand):
+            return cand, "custom-exact"
     best = None
     if os.path.isdir(CUSTOM):
         for f in sorted(os.listdir(CUSTOM)):
             if not f.endswith(".profile"):
                 continue
+            if f[:-8].lower() == stem.lower():
+                return os.path.join(CUSTOM, f), "custom-exact"
             p = read_pairs(os.path.join(CUSTOM, f))
             if n in aliases_of(p):
                 best = os.path.join(CUSTOM, f)
@@ -76,9 +80,17 @@ def resolve(stem):
     if best:
         return best, "custom-alias"
     for d in (PROF_DIR, CUSTOM):
-        cand = os.path.join(d, n + ".profile")
-        if os.path.exists(cand):
-            return cand, "bundled"
+        for name in (stem + ".profile", n + ".profile"):
+            cand = os.path.join(d, name)
+            if os.path.exists(cand):
+                return cand, "bundled"
+    # 大小写不一致时再扫一遍（exFAT 文件名保序，但端口脚本可能改大小写）
+    for d in (CUSTOM, PROF_DIR):
+        if not os.path.isdir(d):
+            continue
+        for f in os.listdir(d):
+            if f.endswith(".profile") and f[:-8].lower() == stem.lower():
+                return os.path.join(d, f), "bundled"
     for cand in (os.path.join(CUSTOM, "default.profile"),
                  os.path.join(PROF_DIR, "default.profile")):
         if os.path.exists(cand):
@@ -151,9 +163,11 @@ def main():
             keys[k] = ",".join(str(v) for v in vals)
         else:
             keys.pop(k, None)
-    # 只是模板默认、用户没显式写键位的鼠标键，不额外发键盘
-    for c in (click_left, click_right):
-        if c in keys and c not in explicit:
+    # 只有“模板默认的鼠标键”才抑制键盘叠发；
+    # 用户自己在设置页指定的鼠标键，保留键盘键（例如 A 同时发 J 和左键）
+    for c, user_set in ((click_left, "control.mouse_left" in prof),
+                        (click_right, "control.mouse_right" in prof)):
+        if c in keys and c not in explicit and not user_set:
             keys.pop(c, None)
 
     os.makedirs(sdir, exist_ok=True)

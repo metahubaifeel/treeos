@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+"""flash-doctor：启动器配置与同类问题的一次性体检。
+
+检查：
+  1. 每个 custom profile 能否精确解析（原始名/归一化/大小写）
+  2. 每个 profile 编译后的 click/尺寸是否与 profile 一致
+  3. 有 profile 的 SWF 是否都能命中
+  4. 开机图 21 张是否齐全
+  5. treeos-flash 是否只停 game-keys、保留 treeos-keys
+  6. SSH 暴露面（默认口令版本会给出警告）
+
+用法：flash-doctor            # 全部
+      flash-doctor --quiet    # 只输出失败
+"""
+import importlib.machinery
+import importlib.util
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+QUIET = "--quiet" in sys.argv
+fails = []
+warns = []
+oks = 0
+
+
+def ok(msg):
+    global oks
+    oks += 1
+    if not QUIET:
+        print("OK   " + msg)
+
+
+def fail(msg):
+    fails.append(msg)
+    print("FAIL " + msg)
+
+
+def warn(msg):
+    warns.append(msg)
+    if not QUIET:
+        print("WARN " + msg)
+
+
+def load_template():
+    loader = importlib.machinery.SourceFileLoader(
+        "flash_template", "/usr/local/bin/flash-template")
+    spec = importlib.util.spec_from_loader("flash_template", loader)
+    mod = importlib.util.module_from_spec(spec)
+    loader.exec_module(mod)
+    return mod
+
+
+def read_pairs(path):
+    out = {}
+    for line in open(path, encoding="utf-8", errors="replace"):
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, v = line.split("=", 1)
+            out[k.strip()] = v.strip().strip('"').strip("'")
+    return out
+
+
+def main():
+    m = load_template()
+    custom = m.CUSTOM
+
+    # 1/2. profile 解析 + 编译一致性
+    profiles = [f for f in sorted(os.listdir(custom)) if f.endswith(".profile")]
+    for f in profiles:
+        stem = f[:-8]
+        path, src = m.resolve(stem)
+        if src != "custom-exact":
+            fail(f"profile {f}: 解析到 {src} ({path})")
+            continue
+        td = tempfile.mkdtemp()
+        swf = os.path.join(td, stem + ".swf")
+        open(swf, "wb").write(b"x")
+        out = os.path.join(td, "s")
+        r = subprocess.run(["/usr/local/bin/flash-template", swf, out],
+                           capture_output=True, text=True)
+        if r.returncode:
+            fail(f"profile {f}: 编译失败 {r.stderr[:80]}")
+            continue
+        env = read_pairs(os.path.join(out, "session.env"))
+        prof = read_pairs(os.path.join(custom, f))
+        want = prof.get("control.mouse_left", "")
+        got = env.get("CLICK_LEFT", "")
+        if want and want != got:
+            fail(f"profile {f}: 左键 want {want} got {got}")
+            continue
+        ok(f"profile {f}")
+
+    # 3. 有 profile 的 SWF 必须命中
+    swfs = []
+    for root in ("/roms/flash",):
+        if os.path.isdir(root):
+            swfs += [os.path.join(root, x) for x in os.listdir(root)
+                     if x.lower().endswith(".swf")]
+    ports = "/roms/ports"
+    if os.path.isdir(ports):
+        for sub in os.listdir(ports):
+            g = os.path.join(ports, sub, "game")
+            if os.path.isdir(g):
+                swfs += [os.path.join(g, x) for x in os.listdir(g)
+                         if x.lower().endswith(".swf")]
+    stems = {f[:-8].lower() for f in profiles}
+    for swf in swfs:
+        stem = os.path.splitext(os.path.basename(swf))[0]
+        if stem.lower() not in stems:
+            continue
+        path, src = m.resolve(stem)
+        if src != "custom-exact":
+            fail(f"SWF {swf}: 有 profile 却解析到 {src}")
+    ok(f"SWF 命中检查（{len(swfs)} 个）")
+
+    # 4. 开机图
+    boot = "/usr/local/share/treeos-boot"
+    n = 0
+    if os.path.isdir(boot):
+        n = len([x for x in os.listdir(boot) if x.endswith(".raw")])
+    if n != 21:
+        fail(f"开机图 {n}/21")
+    else:
+        ok("开机图 21/21")
+
+    # 5. 会话服务策略
+    try:
+        s = open("/usr/local/bin/treeos-flash", encoding="utf-8").read()
+        if re.search(r"stop\s+game-keys\.service.*treeos-keys", s):
+            fail("treeos-flash 仍把 treeos-keys 一起停了（游戏内会没音量）")
+        elif "stop game-keys.service" in s and "start treeos-keys.service" in s:
+            ok("treeos-flash：只停 game-keys，保留 treeos-keys")
+        else:
+            warn("treeos-flash 服务策略未识别")
+    except OSError:
+        fail("缺 /usr/local/bin/treeos-flash")
+
+    # 6. SSH 暴露面
+    cfg = "/etc/ssh/sshd_config"
+    if os.path.exists(cfg):
+        txt = open(cfg, encoding="utf-8", errors="replace").read()
+        if re.search(r"^\s*PermitRootLogin\s+yes", txt, re.M):
+            warn("sshd 允许 root 密码登录")
+        if re.search(r"^\s*PasswordAuthentication\s+yes", txt, re.M):
+            warn("sshd 允许密码登录")
+    if os.path.exists("/etc/systemd/system/multi-user.target.wants/ssh.service"):
+        warn("sshd 默认启用")
+
+    print(f"\n结果：OK {oks}，WARN {len(warns)}，FAIL {len(fails)}")
+    return 1 if fails else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

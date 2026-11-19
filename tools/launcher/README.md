@@ -20,6 +20,7 @@ treeos-flash <swf>
 | `flashcfg` | profile 唯一读写入口（schema v3，原子写、旧键兼容、.stick 兼容） |
 | `padinput.py` | 输入层：独占手柄（EVIOCGRAB）、uinput 键盘/鼠标、一柄多键、点击与键盘并发 |
 | `flash-return2.sh` | 设置界面保存后：重新编译 session，再回增强运行时 |
+| `flash-doctor` | 全量体检：profile 解析/编译、SWF 命中、开机图、音量服务、SSH 暴露面 |
 | `treeos-import` | 把 `/roms/import/` 里的文件按扩展名归档到各游戏目录，并为 Flash 包生成 Ports 入口 |
 | `treeos-import.service` | 开机前跑一次导入（`Before=treeos-emulationstation`） |
 | `flash-mapper-main.c` | 设置 UI（SDL2 + stb_truetype + stb_image；C，单文件） |

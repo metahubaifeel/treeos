@@ -1192,15 +1192,13 @@ static void save_stick(int mode)
 static int valid_stem(const char *stem)
 {
     size_t n = strlen(stem);
-    if (!n || n > 48 || !strcmp(stem, ".") || !strcmp(stem, ".."))
+    if (!n || n > 160 || !strcmp(stem, ".") || !strcmp(stem, ".."))
         return 0;
 
     for (size_t i = 0; i < n; ++i) {
         unsigned char c = (unsigned char)stem[i];
-        if (!((c >= 'a' && c <= 'z') ||
-              (c >= 'A' && c <= 'Z') ||
-              (c >= '0' && c <= '9') ||
-               c == '_' || c == '-' || c == '.'))
+        /* 允许中文/空格等 UTF-8，只拒绝路径分隔符与控制字符 */
+        if (c < 0x20 || c == 0x7f || c == '/' || c == '\\')
             return 0;
     }
     return 1;

@@ -22,7 +22,9 @@ fi
 echo "{\"pid\":$$,\"stem\":\"$STEM\",\"swf\":\"$SWF\",\"started\":$(date +%s)}" > "$RUN/session.json"
 
 # 输入互斥：Flash 会话期间停掉常驻键守护
-systemctl stop game-keys.service treeos-keys.service 2>/dev/null || true
+# 只停 game-keys（会抢手柄）；treeos-keys 负责音量/亮度，保留并确保在跑
+systemctl stop game-keys.service 2>/dev/null || true
+systemctl start treeos-keys.service 2>/dev/null || true
 pkill -x padinput 2>/dev/null || true
 pkill -f 'padinput\.py' 2>/dev/null || true
 pkill -f 'gptokeyb[2]' 2>/dev/null || true
