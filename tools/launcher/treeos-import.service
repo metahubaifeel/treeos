@@ -1,0 +1,14 @@
+[Unit]
+Description=TreeOS 游戏导入（/roms/import）
+After=local-fs.target
+Before=treeos-emulationstation.service
+ConditionPathExists=/roms/import
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/treeos-import
+TimeoutStartSec=180
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

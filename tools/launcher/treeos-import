@@ -1,0 +1,259 @@
+#!/usr/bin/env python3
+"""treeos-import: 把 /roms/import/ 里的文件整理进对应游戏目录。
+
+用户只做一件事：把游戏文件或整个文件夹拖进 /roms/import/（卡插电脑即可见），
+开机前由 treeos-import.service 自动归档；也可以手动运行。
+
+不下载、不内置任何游戏；只搬运用户自己提供的文件。
+
+用法:
+  treeos-import                # 处理 $TREEOS_ROM_ROOT/import（默认 /roms/import）
+  TREEOS_ROM_ROOT=/tmp/x treeos-import   # 测试
+"""
+import os
+import re
+import shutil
+import sys
+import tempfile
+import time
+import zipfile
+
+ROOT = os.environ.get("TREEOS_ROM_ROOT", "/roms")
+IMPORT = os.path.join(ROOT, "import")
+REPORT = os.path.join(ROOT, "import-report.txt")
+FLASH_DIR = os.path.join(ROOT, "flash")
+PORTS_DIR = os.path.join(ROOT, "ports")
+FLASH_RUNNER = "/usr/local/bin/treeos-flash"
+
+# 扩展名 -> 目录
+ROM_EXT = {
+    ".gba": "gba", ".gb": "gb", ".gbc": "gbc",
+    ".nes": "nes", ".fds": "fds",
+    ".sfc": "snes", ".smc": "snes",
+    ".md": "megadrive", ".gen": "megadrive",
+    ".n64": "n64", ".z64": "n64", ".v64": "n64",
+    ".cue": "psx", ".chd": "psx", ".pbp": "psx",
+    ".nds": "nds", ".3ds": None,
+    ".pce": "pcengine", ".ws": "wonderswan", ".wsc": "wonderswancolor",
+    ".ngp": "ngp", ".ngc": "ngpc",
+    ".32x": "sega32x", ".sms": "mastersystem", ".gg": "gamegear",
+    ".a26": "atari2600", ".a78": "atari7800",
+    ".lnx": "atarilynx", ".vb": "virtualboy",
+}
+FLASH_ENTRY_NAMES = ("index.swf", "main.swf", "start.swf",
+                     "game.swf", "loader.swf", "play.swf")
+
+lines = []
+counts = {"rom": 0, "flash": 0, "package": 0, "skip": 0, "unknown": 0, "error": 0}
+
+
+def log(msg):
+    lines.append(msg)
+    print(msg)
+
+
+def safe(name):
+    name = os.path.basename(name.replace("\\", "/")).strip()
+    name = re.sub(r'[\x00-\x1f<>:"|?*]', "", name)
+    return name or "unnamed"
+
+
+def zip_name(info):
+    """还原 Windows 中文 zip 的 GBK 文件名。"""
+    if info.flag_bits & 0x800:
+        return info.filename
+    try:
+        return info.filename.encode("cp437").decode("gbk")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return info.filename
+
+
+def ensure_dir(path):
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def target_dir(ext):
+    sub = ROM_EXT.get(ext.lower())
+    return os.path.join(ROOT, sub) if sub else None
+
+
+def move_rom(path, ext):
+    sub = ROM_EXT.get(ext.lower())
+    if not sub:
+        counts["unknown"] += 1
+        log(f"[跳过] 不认识的扩展名: {os.path.basename(path)}")
+        return False
+    dest_dir = ensure_dir(os.path.join(ROOT, sub))
+    dest = os.path.join(dest_dir, safe(os.path.basename(path)))
+    if os.path.exists(dest):
+        counts["skip"] += 1
+        log(f"[已存在] {sub}/{os.path.basename(dest)}")
+        return False
+    shutil.move(path, dest)
+    counts["rom"] += 1
+    log(f"[游戏] {os.path.basename(path)} -> {sub}/")
+    return True
+
+
+def find_entry(folder):
+    lower = {f.lower(): f for f in os.listdir(folder)
+             if os.path.isfile(os.path.join(folder, f))}
+    for name in FLASH_ENTRY_NAMES:
+        if name in lower:
+            return os.path.join(folder, lower[name])
+    swfs = [f for f in os.listdir(folder) if f.lower().endswith(".swf")
+            and os.path.isfile(os.path.join(folder, f))]
+    if not swfs:
+        return None
+    swfs.sort(key=lambda f: os.path.getsize(os.path.join(folder, f)), reverse=True)
+    return os.path.join(folder, swfs[0])
+
+
+def make_port(title, entry):
+    ensure_dir(PORTS_DIR)
+    port = os.path.join(PORTS_DIR, safe(title) + ".sh")
+    if os.path.exists(port):
+        counts["skip"] += 1
+        log(f"[已存在] ports/{safe(title)}.sh")
+        return
+    entry = entry.replace('"', '\\"')
+    with open(port, "w", encoding="utf-8") as f:
+        f.write("#!/bin/sh\n")
+        f.write(f'exec sudo -n {FLASH_RUNNER} "{entry}"\n')
+    os.chmod(port, 0o755)
+    log(f"[入口] ports/{safe(title)}.sh -> {os.path.basename(entry)}")
+
+
+def install_flash_package(folder, title):
+    dest = os.path.join(FLASH_DIR, safe(title))
+    if os.path.exists(dest):
+        counts["skip"] += 1
+        log(f"[已存在] flash/{safe(title)}/")
+        return
+    ensure_dir(FLASH_DIR)
+    shutil.move(folder, dest)
+    entry = find_entry(dest)
+    if not entry:
+        counts["error"] += 1
+        log(f"[失败] flash/{safe(title)}/ 里没有 .swf")
+        return
+    counts["package"] += 1
+    log(f"[Flash 包] flash/{safe(title)}/ 入口 {os.path.basename(entry)}")
+    make_port(os.path.splitext(safe(title))[0], entry)
+
+
+def install_swf(path, title):
+    ensure_dir(FLASH_DIR)
+    dest = os.path.join(FLASH_DIR, safe(title) + ".swf")
+    if os.path.exists(dest):
+        counts["skip"] += 1
+        log(f"[已存在] flash/{safe(title)}.swf")
+        return
+    shutil.move(path, dest)
+    counts["flash"] += 1
+    log(f"[Flash] {os.path.basename(dest)} -> flash/")
+
+
+def process_dir(folder, title):
+    files = [f for f in os.listdir(folder)
+             if os.path.isfile(os.path.join(folder, f))]
+    swfs = [f for f in files if f.lower().endswith(".swf")]
+    if swfs:
+        install_flash_package(folder, title)
+        return
+    moved = False
+    for f in files:
+        ext = os.path.splitext(f)[1].lower()
+        if ext in ROM_EXT and ROM_EXT[ext]:
+            move_rom(os.path.join(folder, f), ext)
+            moved = True
+        elif ext == ".zip":
+            process_zip(os.path.join(folder, f), title)
+            moved = True
+        else:
+            counts["unknown"] += 1
+            log(f"[跳过] {f}")
+    if not moved:
+        log(f"[提示] {title} 里没有可识别的游戏文件")
+
+
+def extract_zip(zpath, tmp):
+    with zipfile.ZipFile(zpath) as z:
+        for info in z.infolist():
+            name = zip_name(info)
+            parts = [safe(p) for p in name.split("/") if p not in ("", ".", "..")]
+            if not parts:
+                continue
+            out = os.path.join(tmp, *parts)
+            if info.is_dir():
+                ensure_dir(out)
+                continue
+            ensure_dir(os.path.dirname(out))
+            with z.open(info) as src, open(out, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+
+
+def process_zip(zpath, title):
+    tmp = tempfile.mkdtemp(prefix=".treeos-import-", dir=IMPORT)
+    try:
+        extract_zip(zpath, tmp)
+        entries = [e for e in os.listdir(tmp) if not e.startswith(".")]
+        # 单层同名文件夹展开
+        if len(entries) == 1 and os.path.isdir(os.path.join(tmp, entries[0])):
+            process_dir(os.path.join(tmp, entries[0]), title)
+        else:
+            process_dir(tmp, title)
+        os.unlink(zpath)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def main():
+    if not os.path.isdir(IMPORT):
+        log(f"没有 {IMPORT}，跳过")
+        return 0
+    items = sorted(os.listdir(IMPORT))
+    items = [i for i in items if not i.startswith(".")]
+    if not items:
+        log("import 目录为空")
+        return 0
+
+    log(f"TreeOS 导入 {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    for item in items:
+        path = os.path.join(IMPORT, item)
+        title = os.path.splitext(item)[0]
+        try:
+            if os.path.isdir(path):
+                process_dir(path, title)
+                if os.path.isdir(path) and not os.listdir(path):
+                    os.rmdir(path)
+            else:
+                ext = os.path.splitext(item)[1].lower()
+                if ext == ".zip":
+                    process_zip(path, title)
+                elif ext == ".swf":
+                    install_swf(path, title)
+                elif ext in ROM_EXT and ROM_EXT[ext]:
+                    move_rom(path, ext)
+                else:
+                    counts["unknown"] += 1
+                    log(f"[跳过] {item}（不认识的类型）")
+        except Exception as e:  # noqa: BLE001 - 单个文件失败不中断整批
+            counts["error"] += 1
+            log(f"[失败] {item}: {e}")
+
+    summary = (f"完成：游戏 {counts['rom']}，Flash {counts['flash']}，"
+               f"Flash 包 {counts['package']}，跳过 {counts['skip']}，"
+               f"不认识 {counts['unknown']}，失败 {counts['error']}")
+    log(summary)
+    try:
+        with open(REPORT, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+    except OSError:
+        pass
+    return 0 if counts["error"] == 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

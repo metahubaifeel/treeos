@@ -20,6 +20,8 @@ treeos-flash <swf>
 | `flashcfg` | profile 唯一读写入口（schema v3，原子写、旧键兼容、.stick 兼容） |
 | `padinput.py` | 输入层：独占手柄（EVIOCGRAB）、uinput 键盘/鼠标、一柄多键、点击与键盘并发 |
 | `flash-return2.sh` | 设置界面保存后：重新编译 session，再回增强运行时 |
+| `treeos-import` | 把 `/roms/import/` 里的文件按扩展名归档到各游戏目录，并为 Flash 包生成 Ports 入口 |
+| `treeos-import.service` | 开机前跑一次导入（`Before=treeos-emulationstation`） |
 | `flash-mapper-main.c` | 设置 UI（SDL2 + stb_truetype + stb_image；C，单文件） |
 | `icons/` | 设置 UI 图标（Kenney Input Prompts，CC0，见 `icons/LICENSE.txt`） |
 | `flash-es-launch` / `stop-flash` | 经典后端与清理脚本（R36S 设备路径） |
@@ -33,6 +35,25 @@ gcc -O2 -I. -o flash-mapper flash-mapper-main.c \
     $(sdl2-config --cflags --libs) -lm
 # 设备上还需把 icons/*.png 放到 /opt/flashmenu/icons/
 ```
+
+## 安装游戏（给用户）
+
+镜像不预装任何游戏。用户把自己的文件放进 `EASYROMS` 分区（挂载为 `/roms`）的
+`import/` 目录，开机时自动归档：
+
+| 放进去 | 结果 |
+|---|---|
+| `xxx.gba` / `.gb` / `.nes` / `.sfc` / `.md` / `.n64` / `.cue` … | 移到 `/roms/<对应核心目录>/` |
+| `xxx.swf`（单文件） | 移到 `/roms/flash/`，ES 的 Flash 分类直接出现 |
+| 一个文件夹 / zip，里面有 `.swf` 和素材 | 整包移到 `/roms/flash/<名字>/`，自动找入口 SWF，生成 `/roms/ports/<名字>.sh` |
+| 不认识的类型 | 留在 `import/`，写进 `/roms/import-report.txt` |
+
+- 不覆盖同名文件；已存在会跳过并在报告里列出
+- Windows 中文 zip 的 GBK 文件名会自动还原
+- Flash 包首次启动可在设置界面按 FN 调键；模版默认 `arrows_pointer`
+- 导入器只搬运用户自己的文件，不下载、不内置任何游戏
+
+手动执行：`sudo -n /usr/local/bin/treeos-import`，然后重启 ES。
 
 ## profile（schema v3）
 
