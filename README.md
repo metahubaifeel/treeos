@@ -30,7 +30,9 @@ TreeOS replaces the base:
 - No ROMs/SWFs/BIOS/saves included; put games in `EASYROMS/import/` or the platform folders
 - **Security**: SSH disabled by default, root login disabled, root locked; user `tree`.
   `sudo treeos-ssh on` opens a 10-minute pairing window (random password); `--key` is key-only.
-  The window closes and credentials are deleted automatically. See `SECURITY.txt`.
+  The window closes and credentials are deleted automatically. See `SECURITY.txt`
+- Remote root login is disabled: **do not use `ssh root@...`** (you get `Permission denied (publickey)`).
+  Use `ssh tree@<ip>`, then `sudo -i` for root (tree has passwordless sudo).
 
 ## What works (verified on hardware)
 

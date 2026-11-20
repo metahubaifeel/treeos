@@ -31,6 +31,8 @@ TreeOS 换掉地基：
 - **安全**：SSH 默认关闭、root 登录禁止、root 已锁定；系统用户 `tree`。
   `sudo treeos-ssh on` 开 10 分钟配对窗口（随机密码），`--key` 为仅密钥；
   到期自动关闭并删凭据。详见 Release 的 `SECURITY.txt`
+- 远程 root 登录关闭：**不要 `ssh root@...`**（会 `Permission denied (publickey)`）；
+  用 `ssh tree@<ip>`，登录后 `sudo -i` 即 root（tree 有免密 sudo）
 
 ## 已验证（真机）
 
