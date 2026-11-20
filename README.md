@@ -21,16 +21,16 @@ TreeOS replaces the base:
 | Frontend | EmulationStation | EmulationStation (kept) |
 | Emulator | vendor RetroArch (RGA-dependent) | **Debian RetroArch 1.20** |
 
-## Preview image (0.1.1)
+## Preview image (0.1.2)
 
-**[Download TreeOS 0.1.1 (R36S)](https://github.com/metahubaifeel/treeos/releases/tag/v0.1.1)**
-— 16 GiB image, ~1.7 GB compressed (1,695,873,568 bytes); R36S only (RK3326, 1 GB).
+**[Download TreeOS 0.1.2 (R36S)](https://github.com/metahubaifeel/treeos/releases/tag/v0.1.2)**
+— 16 GiB image, ~1.7 GB compressed (1,695,814,382 bytes); R36S only (RK3326, 1 GB).
 
 - **Preview: author-side cold-boot regression on real hardware is still pending**
 - No ROMs/SWFs/BIOS/saves included; put games in `EASYROMS/import/` or the platform folders
-- **Security**: SSH disabled by default, root login disabled, root locked; user `tree` (ES auto-login).
-  To enable SSH: set a strong password with `passwd tree`, then `sudo systemctl enable --now ssh`;
-  do not expose an unpatched device to public networks. See `SECURITY.txt` in the release.
+- **Security**: SSH disabled by default, root login disabled, root locked; user `tree`.
+  `sudo treeos-ssh on` opens a 10-minute pairing window (random password); `--key` is key-only.
+  The window closes and credentials are deleted automatically. See `SECURITY.txt`.
 
 ## What works (verified on hardware)
 
@@ -46,9 +46,9 @@ TreeOS replaces the base:
 - Game importer: files dropped in `/roms/import/` are sorted by extension before ES starts;
   arcade zips are kept as-is
 - zram swap, WiFi, 21 rotating boot images
-- 0.1.1 image published; real-card cold-boot regression still pending
+- 0.1.2 image published; real-card cold-boot regression still pending
 
-Not verified yet: cold boot of the 0.1.1 image, N64/PSP performance,
+Not verified yet: cold boot of the 0.1.2 image, N64/PSP performance,
 save reliability across repeated power cycles, RK3566/RK3562 boards, OTA,
 and full Flash playability (per-game validation ongoing).
 

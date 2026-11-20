@@ -21,16 +21,16 @@ TreeOS 换掉地基：
 | 前端 | EmulationStation | EmulationStation（保留） |
 | 模拟器 | 厂商 RetroArch（依赖 RGA） | **Debian 官方 RetroArch 1.20** |
 
-## 先行版镜像（0.1.1）
+## 先行版镜像（0.1.2）
 
-**[下载 TreeOS 0.1.1（R36S）](https://github.com/metahubaifeel/treeos/releases/tag/v0.1.1)**
-— 16 GiB 镜像，压缩约 1.7 GB（1,695,873,568 字节）；仅 R36S（RK3326，1GB）。
+**[下载 TreeOS 0.1.2（R36S）](https://github.com/metahubaifeel/treeos/releases/tag/v0.1.2)**
+— 16 GiB 镜像，压缩约 1.7 GB（1,695,814,382 字节）；仅 R36S（RK3326，1GB）。
 
 - **预览版：尚未完成作者侧实卡冷启回归**
 - 不含任何 ROM/SWF/BIOS/存档；游戏放 `EASYROMS/import/` 或对应平台目录
-- **安全**：SSH 默认关闭、禁止 root 登录、root 已锁定；系统用户 `tree`（ES 自动登录）。
-  如需 SSH：先 `passwd tree` 设强密码，再 `sudo systemctl enable --now ssh`；
-  不要把未改密的机器暴露在公共网络。详见 Release 的 `SECURITY.txt`
+- **安全**：SSH 默认关闭、root 登录禁止、root 已锁定；系统用户 `tree`。
+  `sudo treeos-ssh on` 开 10 分钟配对窗口（随机密码），`--key` 为仅密钥；
+  到期自动关闭并删凭据。详见 Release 的 `SECURITY.txt`
 
 ## 已验证（真机）
 
@@ -45,9 +45,9 @@ TreeOS 换掉地基：
   新设置界面支持鼠标左右键、按住 2 秒绑定、一柄多键（如 `south=74,32`）
 - 游戏导入器：`/roms/import/` 开机前按扩展名归档；街机 zip 保持原样
 - zram、WiFi、21 张开机轮播图
-- 0.1.1 镜像已发布；实卡冷启回归待补
+- 0.1.2 镜像已发布；实卡冷启回归待补
 
-尚未验证：0.1.1 的实卡冷启、N64/PSP 性能、反复开关机后的存档可靠性、
+尚未验证：0.1.2 的实卡冷启、N64/PSP 性能、反复开关机后的存档可靠性、
 RK3566/RK3562 板型、OTA、Flash 全量可玩性（逐游戏验证仍在进行）。
 
 ## 实拍与视频
