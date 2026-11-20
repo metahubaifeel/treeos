@@ -53,9 +53,10 @@
 - **通用控制 v2**（`flash-template` → `session.bindings.json` → `padinput` / `flash-emit-gptk`）：
   源码已实现；经典后端在《黄金矿工》验证，增强后端绑定表正确但键盘事件尚未送达 Ruffle 内容。
   未进入 0.1.2，也未提交到本仓库
-- **SDL/KMSDRM 开机图**：手动运行可用；开机服务仍有“约 1 秒图后黑屏约 3 秒”的时序窗口，未验收
+- **开机画面（0.1.3 草案）**：直接 DRM/KMS + fb0 交接 + ES early boot splash 已在测试机冷启验证；
+  首帧 5.05s，交接只剩 modeset 约 0.2s 闪烁；0–5 秒 U-Boot/内核仍黑。未进入 0.1.2
 - **0.1.3 草案**（假鼠标清理、ES 输入配置对齐、WiFi `nmcli`、SSH 默认 `tree/tree`、日志导出、
-  通用控制）：未发布；默认口令只适用于可信局域网
+  开机画面、通用控制）：未发布；默认口令只适用于可信局域网
 - **AURKNIX `sdl2test-rocknix` v0.9**：只完成二进制与启动链调研，未在 TreeOS 上集成或验收
 - ports 兼容层（port-runner）
 - 开发终端 / 中文输入 / coding agent / 本地小模型

@@ -1,0 +1,203 @@
+diff --git a/es-app/src/EmulationStation.h b/es-app/src/EmulationStation.h
+index 91d9691..c692a58 100644
+--- a/es-app/src/EmulationStation.h
++++ b/es-app/src/EmulationStation.h
+@@ -10,7 +10,7 @@
+ #define PROGRAM_VERSION_MAINTENANCE		0
+ #define PROGRAM_VERSION_BUILD			0
+ 
+-#define PROGRAM_VERSION_STRING "2.13.0.0 CHMOD"
++#define PROGRAM_VERSION_STRING "TreeOS 0.1"
+ #define SCRAPER_VERSION_STRING "2.11.0.0"
+ 
+ #define PROGRAM_BUILT_STRING __DATE__ " - " __TIME__
+diff --git a/es-app/src/guis/arkos4clone/ArkOSUtil.cpp b/es-app/src/guis/arkos4clone/ArkOSUtil.cpp
+index 5495cfc..4b58d6e 100644
+--- a/es-app/src/guis/arkos4clone/ArkOSUtil.cpp
++++ b/es-app/src/guis/arkos4clone/ArkOSUtil.cpp
+@@ -42,8 +42,7 @@ std::string getSystemName()
+ {
+     static std::string cached;
+     if (cached.empty()) {
+-        cached = executeCommand("/usr/local/bin/console_detect -V 2>/dev/null");
+-        if (cached.empty()) cached = "ArkOS4Clone";
++        cached = "TreeOS";  // TreeOS branding (ignore vendor name)
+         cached = Utils::String::trim(cached);
+     }
+     return cached;
+diff --git a/es-app/src/main.cpp b/es-app/src/main.cpp
+index 3265e08..52f832f 100644
+--- a/es-app/src/main.cpp
++++ b/es-app/src/main.cpp
+@@ -563,7 +563,7 @@ int main(int argc, char* argv[])
+ 		});
+ 
+ 		if (splashScreen)
+-			window.renderLoadingScreen(_("Loading..."));
++			window.renderLoadingScreen("");
+ 	}
+ 
+ 	const char* errorMsg = NULL;
+diff --git a/es-core/src/Window.cpp b/es-core/src/Window.cpp
+index 68dc3eb..cc63020 100644
+--- a/es-core/src/Window.cpp
++++ b/es-core/src/Window.cpp
+@@ -1,4 +1,5 @@
+ #include <string>
++#include <cstdio>
+ #include "Window.h"
+ 
+ #include "components/HelpComponent.h"
+@@ -98,6 +99,46 @@ bool Window::init(bool initRenderer)
+ 			return false;
+ 		}
+ 
++		// TreeOS: 窗口/GL 一就绪就画本次 splash 图，不等 ResourceManager/字体加载完，
++		// 避免 KMS modeset 后到 renderLoadingScreen 之间出现 1~2 秒黑屏。
++		{
++			std::string bootPath = ":/splash.svg";
++			FILE *sf = fopen("/run/treeos-splash-image", "r");
++			if (sf)
++			{
++				char line[512] = {0};
++				if (fgets(line, sizeof(line), sf))
++				{
++					std::string raw(line);
++					while (!raw.empty() && (raw.back() == '\n' || raw.back() == '\r'))
++						raw.pop_back();
++					size_t slash = raw.find_last_of('/');
++					std::string base = (slash == std::string::npos) ? raw : raw.substr(slash + 1);
++					size_t dot = base.rfind(".raw");
++					if (dot != std::string::npos)
++					{
++						base = base.substr(0, dot) + ".png";
++						bootPath = "/usr/local/share/treeos-boot/png/" + base;
++					}
++				}
++				fclose(sf);
++			}
++			auto bootSplash = TextureResource::get(bootPath, false, true, false, false);
++			if (bootSplash)
++			{
++				Transform4x4f trans = Transform4x4f::Identity();
++				Renderer::setMatrix(trans);
++				Renderer::drawRect(0, 0, Renderer::getScreenWidth(), Renderer::getScreenHeight(), 0x000000FF);
++				ImageComponent boot(this, true);
++				boot.setResize(Renderer::getScreenWidth(), Renderer::getScreenHeight());
++				boot.setImage(bootSplash);
++				boot.setPosition(0, 0);
++				boot.render(trans);
++				Renderer::swapBuffers();
++				LOG(LogInfo) << "TreeOS early boot splash: " << bootPath;
++			}
++		}
++
+ 		InputManager::getInstance()->init();
+ 	}
+ 	else
+@@ -494,7 +535,31 @@ void Window::endRenderLoadingScreen()
+ void Window::renderLoadingScreen(std::string text, float percent, unsigned char opacity)
+ {	
+ 	if (mSplash == NULL)
+-		mSplash = TextureResource::get(":/splash.svg", false, true, false, false);
++	{
++		std::string splashPath = ":/splash.svg";
++		FILE *sf = fopen("/run/treeos-splash-image", "r");
++		if (sf)
++		{
++			char line[512] = {0};
++			if (fgets(line, sizeof(line), sf))
++			{
++				std::string raw(line);
++				while (!raw.empty() && (raw.back() == '\n' || raw.back() == '\r'))
++					raw.pop_back();
++				size_t slash = raw.find_last_of('/');
++				std::string base = (slash == std::string::npos) ? raw : raw.substr(slash + 1);
++				size_t dot = base.rfind(".raw");
++				if (dot != std::string::npos)
++				{
++					base = base.substr(0, dot) + ".png";
++					splashPath = "/usr/local/share/treeos-boot/png/" + base;
++				}
++			}
++			fclose(sf);
++		}
++		LOG(LogInfo) << "TreeOS loading splash: " << splashPath;
++		mSplash = TextureResource::get(splashPath, false, true, false, false);
++	}
+ 
+ 	Transform4x4f trans = Transform4x4f::Identity();
+ 	Renderer::setMatrix(trans);
+@@ -515,14 +580,14 @@ void Window::renderLoadingScreen(std::string text, float percent, unsigned char
+ 	}
+ 	
+ 	ImageComponent splash(this, true);
+-	splash.setResize(Renderer::getScreenWidth() * 0.4f, 0.0f);	
++	splash.setResize(Renderer::getScreenWidth(), Renderer::getScreenHeight());
+ 
+ 	if (mSplash != NULL)
+ 		splash.setImage(mSplash);
+ 	else
+ 		splash.setImage(":/splash.svg");
+ 
+-	splash.setPosition((Renderer::getScreenWidth() - splash.getSize().x()) / 2, (Renderer::getScreenHeight() - splash.getSize().y()) / 2 * 0.7f);
++	splash.setPosition(0, 0);
+ 	splash.render(trans);
+ 	
+ 	auto& font = mDefaultFonts.at(1);
+@@ -536,6 +601,13 @@ void Window::renderLoadingScreen(std::string text, float percent, unsigned char
+ 	delete cache;
+ 
+ 	Renderer::swapBuffers();
++	{
++		static bool firstLoadingFrame = true;
++		if (firstLoadingFrame) {
++			LOG(LogInfo) << "TreeOS loading screen first frame";
++			firstLoadingFrame = false;
++		}
++	}
+ 	
+ #if defined(_WIN32)
+ 	// Avoid Window Freezing on Windows
+diff --git a/es-core/src/guis/GuiTextEditPopupKeyboard.cpp b/es-core/src/guis/GuiTextEditPopupKeyboard.cpp
+index 4e1bc08..94c668c 100644
+--- a/es-core/src/guis/GuiTextEditPopupKeyboard.cpp
++++ b/es-core/src/guis/GuiTextEditPopupKeyboard.cpp
+@@ -250,17 +250,14 @@ GuiTextEditPopupKeyboard::GuiTextEditPopupKeyboard(Window* window, const std::st
+ 		}
+ 		else if (config->isMappedLike("left", input))
+ 		{
+-			// Only wrap when already at the left edge; otherwise let the grid
+-			// move the cursor one cell. (Previously this always jumped to the
+-			// last column, which made left/right feel inverted.)
++			// TreeOS: move one cell left ourselves (the grid does not handle
++			// horizontal movement here), wrapping at the row start.
+ 			if (mGrid.getSelectedComponent() == mKeyboardGrid)
+ 			{
+ 				Vector2i curCursor = mKeyboardGrid->getCursor();
+-				if (curCursor.x() == 0)
+-				{
+-					mKeyboardGrid->setCursorTo(Vector2i(kbUs[0].size() - 1, curCursor.y()));
+-					return true;
+-				}
++				int n = (int)kbUs[0].size();
++				mKeyboardGrid->setCursorTo(Vector2i((curCursor.x() + n - 1) % n, curCursor.y()));
++				return true;
+ 			}
+ 		}
+ 		else if (config->isMappedLike("right", input))
+@@ -268,11 +265,9 @@ GuiTextEditPopupKeyboard::GuiTextEditPopupKeyboard(Window* window, const std::st
+ 			if (mGrid.getSelectedComponent() == mKeyboardGrid)
+ 			{
+ 				Vector2i curCursor = mKeyboardGrid->getCursor();
+-				if (curCursor.x() >= (int)kbUs[0].size() - 1)
+-				{
+-					mKeyboardGrid->setCursorTo(Vector2i(0, curCursor.y()));
+-					return true;
+-				}
++				int n = (int)kbUs[0].size();
++				mKeyboardGrid->setCursorTo(Vector2i((curCursor.x() + 1) % n, curCursor.y()));
++				return true;
+ 			}
+ 		}
+ 

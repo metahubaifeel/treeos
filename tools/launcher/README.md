@@ -27,6 +27,12 @@ treeos-flash <swf>
 | `icons/` | 设置 UI 图标（Kenney Input Prompts，CC0，见 `icons/LICENSE.txt`） |
 | `flash-es-launch` / `stop-flash` | 经典后端与清理脚本（R36S 设备路径） |
 | `flash-compat-run` | 批量兼容性冒烟脚本 |
+| `treeos-splash-drm.c` | 直接 DRM/KMS 开机图（不经过 SDL；首帧 15–50ms） |
+| `treeos-splash-drm` | 预编译 aarch64 splash |
+| `treeos-splash-run` | 选 raw、写 `/run/treeos-splash-image`、exec splash |
+| `treeos-splash.service` | 开机图服务（不等 udev，`Before=treeos-emulationstation`） |
+| `treeos-es.sh` | 停 splash、等 DRM 释放、直接 exec ES 二进制 |
+| `install-boot-splash.sh` | 把开机图/ES 二进制/unit 固化进运行中的卡或离线 rootfs |
 
 ## 构建 flash-mapper
 

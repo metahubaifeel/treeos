@@ -1,0 +1,8 @@
+#!/bin/sh
+# TreeOS splash launcher: pick a raw image, record it for ES loading screen,
+# then exec the direct DRM/KMS splash.
+for i in $(seq 1 40); do [ -e /dev/dri/card0 ] && break; sleep 0.2; done
+F=$(ls /usr/local/share/treeos-boot/*.raw 2>/dev/null | shuf -n 1)
+[ -n "$F" ] || exit 1
+echo "$F" > /run/treeos-splash-image
+exec /usr/local/bin/treeos-splash "$F"
