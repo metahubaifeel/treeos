@@ -18,12 +18,13 @@
 
 - R36S 硬件表、2GB 改装、风扇 UART、RTL8723DU 适配：`docs/hardware/R36S-hardware.md`
 
-## 当前发布（2026-11-20）
+## 当前发布（2026-11-21）
 
-- **0.1.2 预览镜像**：16 GiB 原始镜像，压缩约 1.7 GB（1,695,814,382 字节），不含 ROM/SWF/BIOS/存档。
-- SSH 默认关闭；`sudo treeos-ssh on` 打开 10 分钟配对窗口（随机密码）。root 远程登录关闭，
-  用 `ssh tree@<ip>` 登录后 `sudo -i` 得 root。
-- **0.1.3 仍是 Draft，未发布。** 下文标“0.1.3 草案”的能力不属于 0.1.2。
+- **0.1.3 预览镜像**：16 GiB 原始镜像，压缩 1,709,502,008 字节，不含 ROM/SWF/BIOS/存档。
+  sha256 `e50a1448…945`；Release: https://github.com/metahubaifeel/treeos/releases/tag/v0.1.3
+- SSH 默认开启（可信局域网）：账号 `tree`、密码 `tree`；root 远程登录关闭，
+  用 `ssh tree@<ip>` 登录后 `sudo -i` 得 root。第一次登录请立即 `passwd` 改密。
+- **0.1.2 已被 0.1.3 替代。** 0.1.3 仍是 Pre-release；作者侧实卡冷启与四款回归未完成。
 
 ## 已验证（RK3326 / R36S，1GB）
 
@@ -53,10 +54,12 @@
 - **通用控制 v2**（`flash-template` → `session.bindings.json` → `padinput` / `flash-emit-gptk`）：
   源码已实现；经典后端在《黄金矿工》验证，增强后端绑定表正确但键盘事件尚未送达 Ruffle 内容。
   未进入 0.1.2，也未提交到本仓库
-- **开机画面（0.1.3 草案）**：直接 DRM/KMS + fb0 交接 + ES early boot splash 已在测试机冷启验证；
-  首帧 5.05s，交接只剩 modeset 约 0.2s 闪烁；0–5 秒 U-Boot/内核仍黑。未进入 0.1.2
-- **0.1.3 草案**（假鼠标清理、ES 输入配置对齐、WiFi `nmcli`、SSH 默认 `tree/tree`、日志导出、
-  开机画面、通用控制）：未发布；默认口令只适用于可信局域网
+- **开机画面（0.1.3）**：直接 DRM/KMS + fb0 交接 + ES early boot splash 已在测试机冷启验证；
+  首帧 5.05s，交接只剩 modeset 约 0.2s 闪烁；0–5 秒 U-Boot/内核仍黑
+- **0.1.3 镜像已发布 Pre-release**：作者侧实卡冷启、四款 Flash 回归、20 次退出未完成；
+  发布不等于已验证
+- **0.1.3 已含**：假鼠标清理、ES 输入配置对齐、WiFi `nmcli`、SSH 默认 `tree/tree`、日志导出、
+  开机画面；默认口令只适用于可信局域网。通用控制 v2 仍未进入。
 - **AURKNIX `sdl2test-rocknix` v0.9**：只完成二进制与启动链调研，未在 TreeOS 上集成或验收
 - ports 兼容层（port-runner）
 - 开发终端 / 中文输入 / coding agent / 本地小模型

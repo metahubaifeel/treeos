@@ -1,7 +1,7 @@
-# Boot splash handoff (0.1.3, unreleased)
+# Boot splash handoff (0.1.3)
 
 Status: **visual issue closed on the test unit** (cold boot shows the image continuously;
-only a ~0.2s modeset flicker remains). Not part of 0.1.2.
+only a ~0.2s modeset flicker remains). Shipped in the 0.1.3 preview.
 
 ## Timeline
 

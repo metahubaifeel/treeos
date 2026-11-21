@@ -2,12 +2,13 @@
 
 里程碑只记录**已在真机验证**的能力；未验证项在 `STATUS.md` 的“未验证/实验”。
 
-## 0.1.3（开发中，未发布）
+## 2026-11-21 — 0.1.3 预览镜像
 
 - 开机画面：直接 DRM/KMS splash（首帧约 5.05s）+ 停止时写 fb0/恢复 fbcon 交接 +
   ES `Window::init` early boot splash；测试机冷启确认只剩 modeset 约 0.2s 闪烁
+- SSH 默认开启（tree/tree，root 远程关闭）；WiFi/输入配置/假鼠标/日志导出修复
 - 0–5 秒 U-Boot/内核仍黑，列 backlog
-- 不进入 0.1.2；0.1.3 镜像待重建
+- Pre-release：作者侧实卡冷启、四款 Flash 回归、20 次退出未完成
 
 ## 2026-11-20 — 0.1.2 预览镜像与 Flash 启动器
 
