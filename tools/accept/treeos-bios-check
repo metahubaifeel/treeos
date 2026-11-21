@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+# treeos-bios-check: read-only BIOS presence check for TreeOS / R36S.
+# It never downloads, bundles or validates the contents of a BIOS file.
+import argparse
+import json
+import os
+import sys
+
+DEFAULT_DATA = os.environ.get("TREEOS_ACCEPT_DATA", "/usr/local/share/treeos-accept")
+
+
+def load_table(data_dir):
+    path = os.path.join(data_dir, "bios.json")
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)["platforms"]
+
+
+def platform_dir(roms, names):
+    for name in names:
+        p = os.path.join(roms, name)
+        if os.path.isdir(p):
+            return p
+    return None
+
+
+def has_roms(path):
+    for root, dirs, files in os.walk(path):
+        dirs[:] = [d for d in dirs if d not in ("media", "images", "videos", "downloaded_images")]
+        for name in files:
+            if name == "gamelist.xml" or name.endswith((".srm", ".sav")) or ".state" in name:
+                continue
+            if name.startswith("."):
+                continue
+            return True
+    return False
+
+
+def check_file(bios, name):
+    p = os.path.join(bios, name)
+    if not os.path.isfile(p):
+        return "missing", 0
+    size = os.path.getsize(p)
+    if size == 0:
+        return "empty", 0
+    return "ok", size
+
+
+def main():
+    ap = argparse.ArgumentParser(description="TreeOS BIOS presence check (read-only)")
+    ap.add_argument("--roms", default="/roms")
+    ap.add_argument("--bios", default=None)
+    ap.add_argument("--data", default=DEFAULT_DATA)
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--quiet", action="store_true")
+    args = ap.parse_args()
+
+    roms = os.path.abspath(args.roms)
+    bios = os.path.abspath(args.bios or os.path.join(roms, "bios"))
+    try:
+        table = load_table(args.data)
+    except (OSError, ValueError, KeyError) as e:
+        print(f"treeos-bios-check: cannot read bios table: {e}", file=sys.stderr)
+        return 2
+
+    results = []
+    fails = warns = oks = 0
+
+    for platform, spec in table.items():
+        if spec.get("skip"):
+            continue
+        pdir = platform_dir(roms, spec.get("dirs", [platform]))
+        if not pdir or not has_roms(pdir):
+            continue
+
+        missing_req = []
+        missing_opt = []
+        empty = []
+        present = []
+        for name in spec.get("required", []):
+            state, size = check_file(bios, name)
+            if state == "ok":
+                present.append(name)
+            elif state == "empty":
+                empty.append(name)
+                missing_req.append(name)
+            else:
+                missing_req.append(name)
+        for name in spec.get("optional", []):
+            state, size = check_file(bios, name)
+            if state == "ok":
+                present.append(name)
+            else:
+                missing_opt.append(name)
+
+        status = "OK"
+        if missing_req:
+            status = "FAIL"
+            fails += 1
+        elif missing_opt:
+            status = "WARN"
+            warns += 1
+        else:
+            status = "OK"
+            oks += 1
+
+        unverifiable = [n for n in spec.get("unverifiable", []) if os.path.isfile(os.path.join(bios, n))]
+        if unverifiable and not missing_req:
+            status = "WARN"
+            warns += 1
+            if oks:
+                oks -= 1
+        results.append({
+            "platform": platform,
+            "dir": pdir,
+            "status": status,
+            "required_missing": missing_req,
+            "optional_missing": missing_opt,
+            "empty": empty,
+            "present": present,
+            "unverifiable": unverifiable,
+            "note": spec.get("note", ""),
+        })
+
+    zip_warn = []
+    if os.path.isdir(bios):
+        for name in sorted(os.listdir(bios)):
+            if name.lower().endswith(".zip") and name.lower() != "neogeo.zip":
+                zip_warn.append(name)
+
+    if args.json:
+        print(json.dumps({"bios": bios, "roms": roms, "results": results,
+                          "zip_in_bios": zip_warn, "fails": fails, "warns": warns}, ensure_ascii=False, indent=2))
+        return 1 if fails else 0
+
+    if not args.quiet:
+        print(f"BIOS: {bios}")
+        print(f"ROMS: {roms}")
+        print()
+        for r in results:
+            detail = ""
+            if r["required_missing"]:
+                detail = "missing required: " + ", ".join(r["required_missing"])
+            elif r["optional_missing"]:
+                detail = "optional missing: " + ", ".join(r["optional_missing"])
+            elif r["present"]:
+                detail = "present: " + ", ".join(r["present"])
+            if r["unverifiable"]:
+                detail += ("; " if detail else "") + "cannot validate: " + ", ".join(r["unverifiable"])
+            if r["note"]:
+                detail += ("; " if detail else "") + r["note"]
+            print(f"[{r['status']}] {r['platform']}: {detail}")
+        if zip_warn:
+            print(f"[WARN] bios/ contains zip file(s) that are probably ROMs, not BIOS: {', '.join(zip_warn)}")
+        print()
+        print(f"summary: {oks} OK, {warns} WARN, {fails} FAIL")
+        print("BIOS files are user-supplied; this tool never downloads or bundles them.")
+    return 1 if fails else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

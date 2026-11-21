@@ -1,0 +1,96 @@
+{
+  "platforms": {
+    "nes": {
+      "dirs": ["nes"],
+      "required": [],
+      "optional": ["disksys.rom"],
+      "note": "FCEUmm 免 BIOS；disksys.rom 只用于 FDS 磁碟机游戏"
+    },
+    "snes": {
+      "dirs": ["snes"],
+      "required": [],
+      "optional": ["dsp1.bin", "dsp1.rom", "dsp2.bin", "dsp3.bin", "dsp4.bin"],
+      "note": "Snes9x 免 BIOS；DSP 芯片游戏才需要可选文件"
+    },
+    "gb": {
+      "dirs": ["gb"],
+      "required": [],
+      "optional": ["gb_bios.bin"],
+      "note": "Gambatte 可无 BIOS 启动；BIOS 只影响开机动画"
+    },
+    "gbc": {
+      "dirs": ["gbc"],
+      "required": [],
+      "optional": ["gbc_bios.bin"],
+      "note": "Gambatte 可无 BIOS 启动；BIOS 只影响开机动画"
+    },
+    "gba": {
+      "dirs": ["gba"],
+      "required": [],
+      "optional": ["gba_bios.bin"],
+      "note": "mGBA 可无 BIOS 启动；BIOS 只影响开机 logo"
+    },
+    "genesis": {
+      "dirs": ["genesis", "megadrive", "md"],
+      "required": [],
+      "optional": ["bios_MD.bin"],
+      "note": "Genesis Plus GX 卡带免 BIOS；bios_MD.bin 只用于 MD-CD"
+    },
+    "segacd": {
+      "dirs": ["segacd", "sega32x"],
+      "required": ["bios_CD_U.bin", "bios_CD_E.bin", "bios_CD_J.bin"],
+      "optional": [],
+      "note": "Sega CD 三区 BIOS；缺任一区对应游戏黑屏"
+    },
+    "pce": {
+      "dirs": ["pce", "pcengine", "tg16"],
+      "required": ["syscard3.pce"],
+      "optional": ["syscard1.pce", "syscard2.pce"],
+      "note": "Super CD-ROM² 需要 syscard3.pce"
+    },
+    "ps1": {
+      "dirs": ["psx", "ps1"],
+      "required": ["scph5500.bin", "scph5501.bin", "scph5502.bin"],
+      "optional": [],
+      "note": "日/美/欧三区 BIOS；缺任一区对应游戏黑屏"
+    },
+    "nds": {
+      "dirs": ["nds"],
+      "required": ["bios7.bin", "bios9.bin", "firmware.bin"],
+      "optional": [],
+      "note": "melonDS/Drastic；缺 BIOS 时多数可 HLE 启动，但联机/部分游戏异常"
+    },
+    "psp": {
+      "dirs": ["psp"],
+      "required": [],
+      "optional": [],
+      "note": "PPSSPP 不需要 BIOS；缺 PPSSPP 资源会白屏"
+    },
+    "dc": {
+      "dirs": ["dreamcast", "dc"],
+      "required": ["dc_boot.bin", "dc_flash.bin"],
+      "optional": [],
+      "note": "Dreamcast 必需；缺任一完全无法启动"
+    },
+    "saturn": {
+      "dirs": ["saturn"],
+      "required": ["sega_101.bin", "mpr-17933.bin"],
+      "optional": [],
+      "note": "日/美欧 BIOS；缺对应区无法启动"
+    },
+    "neogeo": {
+      "dirs": ["neogeo"],
+      "required": ["neogeo.zip"],
+      "optional": [],
+      "unverifiable": ["neogeo.zip"],
+      "note": "neogeo.zip 必须与 ROM set 匹配；本工具只能检查存在，不能验证版本"
+    },
+    "ports": {
+      "dirs": ["ports"],
+      "required": [],
+      "optional": [],
+      "skip": true,
+      "note": "非模拟器平台；依赖由 port 自己处理"
+    }
+  }
+}

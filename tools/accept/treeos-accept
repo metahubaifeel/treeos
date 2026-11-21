@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+# treeos-accept: pre-delivery checks for a TreeOS / R36S game card.
+# It never launches or downloads games; it checks the staging/card for leftovers
+# and dead gamelist references, then prints the fixed sample list.
+import argparse
+import csv
+import json
+import os
+import sys
+import xml.etree.ElementTree as ET
+
+DEFAULT_DATA = os.environ.get("TREEOS_ACCEPT_DATA", "/usr/local/share/treeos-accept")
+SKIP_DIRS = {"bios", "saves", "ports", "themes", "tools", "flash_data", "import", "backup", "media", "images", "videos"}
+SAVE_SUFFIXES = (".srm", ".sav")
+
+
+def is_save(name):
+    low = name.lower()
+    return low.endswith(SAVE_SUFFIXES) or ".state" in low
+
+
+def scan_saves(root, findings):
+    if not root or not os.path.isdir(root):
+        return
+    for dirpath, dirs, files in os.walk(root):
+        rel = os.path.relpath(dirpath, root)
+        if rel == ".":
+            dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        for name in files:
+            if is_save(name):
+                findings.append(os.path.join(dirpath, name))
+
+
+def check_gamelists(root, dead, missing_media):
+    if not root or not os.path.isdir(root):
+        return
+    for platform in sorted(os.listdir(root)):
+        pdir = os.path.join(root, platform)
+        if platform in SKIP_DIRS or not os.path.isdir(pdir):
+            continue
+        gl = os.path.join(pdir, "gamelist.xml")
+        if not os.path.isfile(gl):
+            continue
+        try:
+            tree = ET.parse(gl)
+        except ET.ParseError:
+            dead.append(f"{gl}: not valid XML")
+            continue
+        for game in tree.getroot().findall("game"):
+            path = (game.findtext("path") or "").strip()
+            if path:
+                target = path if os.path.isabs(path) else os.path.normpath(os.path.join(pdir, path))
+                if not os.path.isfile(target):
+                    dead.append(f"{gl}: path missing: {path}")
+            for tag in ("image", "video"):
+                media = (game.findtext(tag) or "").strip()
+                if not media:
+                    continue
+                target = media if os.path.isabs(media) else os.path.normpath(os.path.join(pdir, media))
+                if not os.path.isfile(target):
+                    missing_media.append(f"{gl}: {tag} missing: {media}")
+
+
+def load_samples(data_dir):
+    path = os.path.join(data_dir, "samples.tsv")
+    with open(path, encoding="utf-8") as f:
+        return list(csv.DictReader(f, delimiter="\t"))
+
+
+def main():
+    ap = argparse.ArgumentParser(description="TreeOS delivery acceptance checks")
+    ap.add_argument("--roms", default="/roms")
+    ap.add_argument("--staging", default=None, help="optional staging directory to scan before copy")
+    ap.add_argument("--data", default=DEFAULT_DATA)
+    ap.add_argument("--allow-saves", action="store_true", help="do not fail on save remnants")
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--samples", action="store_true", default=True, help="print the fixed sample table (default)")
+    args = ap.parse_args()
+
+    roms = os.path.abspath(args.roms)
+    save_findings = []
+    scan_saves(roms, save_findings)
+    if args.staging:
+        scan_saves(os.path.abspath(args.staging), save_findings)
+
+    dead = []
+    missing_media = []
+    check_gamelists(roms, dead, missing_media)
+    if args.staging:
+        check_gamelists(os.path.abspath(args.staging), dead, missing_media)
+
+    try:
+        samples = load_samples(args.data)
+    except (OSError, KeyError) as e:
+        print(f"treeos-accept: cannot read samples: {e}", file=sys.stderr)
+        return 2
+
+    save_fail = bool(save_findings) and not args.allow_saves
+    fail = save_fail or bool(dead)
+
+    if args.json:
+        print(json.dumps({
+            "roms": roms,
+            "staging": args.staging,
+            "save_remnants": save_findings,
+            "save_remnants_fail": save_fail,
+            "gamelist_dead_paths": dead,
+            "gamelist_missing_media": missing_media,
+            "samples": samples,
+            "result": "FAIL" if fail else ("WARN" if missing_media else "PASS"),
+        }, ensure_ascii=False, indent=2))
+        return 1 if fail else 0
+
+    print(f"ROMS: {roms}")
+    if args.staging:
+        print(f"STAGING: {os.path.abspath(args.staging)}")
+    print()
+
+    if save_findings:
+        print(f"[{'FAIL' if save_fail else 'WARN'}] save remnants in ROM directories ({len(save_findings)}):")
+        for p in save_findings[:50]:
+            print(f"  {p}")
+        if len(save_findings) > 50:
+            print(f"  ... and {len(save_findings) - 50} more")
+        if save_fail:
+            print("  delivery cards must not contain another player's .srm/.sav/.state files")
+            print("  use --allow-saves only when you intentionally include saves")
+    else:
+        print("[OK] no save remnants in ROM directories")
+
+    if dead:
+        print(f"[FAIL] gamelist paths that do not exist ({len(dead)}):")
+        for p in dead[:50]:
+            print(f"  {p}")
+    else:
+        print("[OK] gamelist paths all resolve")
+
+    if missing_media:
+        print(f"[WARN] gamelist image/video missing ({len(missing_media)}):")
+        for p in missing_media[:20]:
+            print(f"  {p}")
+    else:
+        print("[OK] gamelist image/video references resolve")
+
+    print()
+    print("samples (one per platform; record in this order):")
+    print("platform\tsample\tpass criteria")
+    for row in samples:
+        print(f"{row.get('platform','')}\t{row.get('sample','')}\t{row.get('pass_criteria','')}")
+
+    print()
+    print(f"result: {'FAIL' if fail else ('WARN' if missing_media else 'PASS')}")
+    print("This tool does not launch games or download content.")
+    return 1 if fail else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

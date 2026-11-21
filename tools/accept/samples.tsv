@@ -1,0 +1,10 @@
+platform	sample	pass_criteria
+nes	001 Super Mario Bros.nes	进标题 5 秒内；A 跳、方向移动；退出回 ES 正常
+snes	Legend of Zelda, The - A Link to the Past (USA).zip	进标题；方向+攻击；存档写入 .srm
+gb	Legend of Zelda, The - Link's Awakening (USA, Europe).zip	进标题；A/B 与方向；退出正常
+gbc	Legend of Zelda, The - Link's Awakening DX (USA, Europe) (Rev A) (SGB Enhanced).zip	同上；颜色正确
+gba	Fire Emblem (USA, Australia).zip	进标题；方向+确认；存档写入
+nds	Mario Kart DS.zip	进标题；上下屏都有画面；触摸/按键可操作（缺 BIOS 时记录实际报错）
+psp	Bomberman USA.cso	进标题 15 秒内；方向+确认；退出不黑屏残留
+genesis	Sonic & Knuckles and Sonic III.zip	进标题；方向+跳；音效正常
+ports	Stardew Valley（ports/stardewvalley/StardewValley.sh）	进菜单 30 秒内；存档目录 savedata/ 出现文件
