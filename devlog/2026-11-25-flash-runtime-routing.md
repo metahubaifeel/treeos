@@ -25,3 +25,11 @@ NGP45HT（RK3562）上的《造梦西游3》已用原 ES 条目上线。玩家�
 - **下一步先做长玩，再决定要不要推广。** 优先记录 NGP 连续换关、首次出现新素材时的慢帧、正常退出和再次读档；若要把按需建网格推广到共用播放器，先做代表游戏的画面、命中与内存回归。AIR 只有在 NGP 本机通过输入、菜单返回、退出、存档隔离和实战验证后，才适合作为可选项。
 
 本次是单作运行时更新，不是刷机或通用发行版。保留上一个入口；回滚的是代码，不是玩家的 `.sol`。未把游戏文件、存档、掌机画面或 AIR 运行库纳入公开材料。
+
+## 三个容易混淆的点（2026-11-25 核对）
+
+1. **不是 libretro 核心。** libretro 是 RetroArch 的核心 ABI（`retro_init` / `retro_run` / `retro_load_game` 等），窗口、手柄、shader、即时存档由 RetroArch 统一管理。本项目播放器是独立进程，自己开 SDL/KMS 窗口并跑主循环，所以不是核心，无法被 RetroArch 直接加载。上游 Ruffle 源码中也没有 libretro 端口。
+2. **AIR 只在另一台机器。** RG353V 的 `xcmFlash` + Adobe AIR 需要 GTK2（`libgtk-x11-2.0`）、X11 与 `libGL`。NGP45HT 是 Debian 13 + KMSDRM、无 X11，且 trixie 已不提供 gtk2 包；实测这些库均不存在。要在 NGP 用 AIR 须自带整套旧 GTK2/X11 栈，是移植项目，不是"换个核心"。AIR 目前的实际价值是**对照基准**（同一游戏它能打中，才能断定那是播放器差异）。
+3. **Difference 修复不是通用收益。** 扫描 4399 库 335 个 SWF 的 ABC 常量池，恰好等于 `difference` 的只有 1 个，且那是 TextLayout 的 `ITextLayoutFormat.difference` 属性，不是混合模式。除造梦3 外，库中没有第二款使用 `BlendMode.Difference`。真正可能通用的是"静态图形按需建网格"，但它改变所有游戏的资源创建时机，须先回归再推广。
+
+两个 PR 当前均为 `MERGEABLE` / `CLEAN`。未自动合并的原因：**合并源码不等于部署到掌机**，且这是维护者的决定，不由助手代按。
