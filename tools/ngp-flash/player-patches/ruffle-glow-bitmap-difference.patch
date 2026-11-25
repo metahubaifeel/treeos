@@ -1,0 +1,59 @@
+diff --git a/core/src/bitmap/operations.rs b/core/src/bitmap/operations.rs
+index 017f58130..184bcd356 100644
+--- a/core/src/bitmap/operations.rs
++++ b/core/src/bitmap/operations.rs
+@@ -1454,6 +1454,54 @@ pub fn draw<'gc>(
+         return Ok(());
+     }
+ 
++    // Glow has no destination-reading blend shader. Isolate the source as a
++    // layer, then composite once, rather than blending each source primitive
++    // over the target (which is wrong for overlapping children). Only allocate
++    // the affected bounds, not a second stage-sized texture for a tiny hitbox.
++    if blend_mode == BlendMode::Difference && context.renderer.name() == "glow" {
++        let w = dirty_region.width();
++        let h = dirty_region.height();
++        let dx = Twips::from_pixels(dirty_region.x_min as f64);
++        let dy = Twips::from_pixels(dirty_region.y_min as f64);
++        let mut local = transform;
++        local.matrix.tx -= dx;
++        local.matrix.ty -= dy;
++        let clip = clip_rect.map(|mut r| {
++            r.x_min -= dx; r.x_max -= dx;
++            r.y_min -= dy; r.y_max -= dy;
++            r
++        });
++        let layer = BitmapData::new(context.gc(), w, h, true, 0);
++        let result = draw(context, layer, source, local, smoothing, BlendMode::Normal, clip, quality);
++        if result.is_ok() {
++            let src = layer.read_area(PixelRegion::for_whole_size(w,h), context.renderer);
++            let dest = target.sync(context.renderer);
++            let mut dst = dest.borrow_mut(context.gc());
++            let opaque = !dst.transparency();
++            for y in 0..h {
++                for x in 0..w {
++                    let s = src.get_pixel32_raw(x,y);
++                    let sa = u32::from(s.alpha());
++                    if sa == 0 { continue; }
++                    let (tx,ty) = (dirty_region.x_min+x, dirty_region.y_min+y);
++                    let d = dst.get_pixel32_raw(tx,ty);
++                    let da = if opaque { 255 } else { u32::from(d.alpha()) };
++                    // Premultiplied difference (Porter-Duff source-over):
++                    // unshared dst + unshared src + abs(shared dst - shared src).
++                    let channel = |s: u8, d: u8| {
++                        let (s,d) = (u32::from(s), u32::from(d));
++                        ((s*(255-da) + d*(255-sa) + (s*da).abs_diff(d*sa) + 127)/255).min(255) as u8
++                    };
++                    let a = sa + (da*(255-sa)+127)/255;
++                    dst.set_pixel32_raw(tx,ty,Color::rgba(channel(s.red(),d.red()),channel(s.green(),d.green()),channel(s.blue(),d.blue()),a as u8));
++                }
++            }
++            dst.set_cpu_dirty(context.gc(), dirty_region);
++        }
++        layer.dispose(context.gc());
++        return result;
++    }
++
+     // This can be a simple and efficient blit as long as:
+     // - We are using a bitmapdata as a source
+     // - We aren't using impactful blend modes

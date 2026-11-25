@@ -1,0 +1,153 @@
+#!/usr/bin/env python3
+"""flash-quit-watch: exit exactly one target process on Select+Start.
+
+Read-only on the gamepad: it does not EVIOCGRAB, so it can run beside a
+native Ruffle process or another input helper. It never uses pkill(name):
+the caller passes the PID it started, and only that PID is signalled.
+
+Usage:
+  flash-quit-watch <pid> [--comm <substring>] [--device /dev/input/eventX]
+                        [--select 314] [--start 315] [--timeout 0]
+
+Exit codes: 0 target exited, 1 combo sent, 2 usage/device error.
+"""
+import argparse
+import os
+import select
+import signal
+import struct
+import sys
+import time
+
+EV_KEY = 1
+SELECT_DEFAULT = 314
+START_DEFAULT = 315
+LOG = "/tmp/flash-quit-watch.log"
+
+
+def log(msg):
+    try:
+        with open(LOG, "a", encoding="utf-8") as f:
+            f.write(f"{time.strftime('%F %T')} {msg}\n")
+    except OSError:
+        pass
+
+
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def comm(pid):
+    try:
+        with open(f"/proc/{pid}/comm", encoding="utf-8", errors="replace") as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def find_device(preferred=None):
+    if preferred:
+        return preferred if os.path.exists(preferred) else None
+    names = []
+    try:
+        names = sorted(os.listdir("/dev/input"))
+    except OSError:
+        return None
+    for name in names:
+        if not name.startswith("event"):
+            continue
+        dev = f"/dev/input/{name}"
+        try:
+            with open(f"/sys/class/input/{name}/device/name", encoding="utf-8",
+                      errors="replace") as f:
+                label = f.read().strip().lower()
+        except OSError:
+            continue
+        if any(k in label for k in ("gamepad", "joystick", "r36s", "rk3562",
+                                    "retrogame", "joypad")):
+            return dev
+    return None
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Exit one process on Select+Start")
+    ap.add_argument("pid", type=int)
+    ap.add_argument("--comm", default="", help="optional substring of /proc/pid/comm")
+    ap.add_argument("--device", default=None)
+    ap.add_argument("--select", type=int, default=SELECT_DEFAULT)
+    ap.add_argument("--start", type=int, default=START_DEFAULT)
+    ap.add_argument("--timeout", type=float, default=0, help="0 = watch until target exits")
+    args = ap.parse_args()
+
+    pid = args.pid
+    if pid <= 1 or not alive(pid):
+        log(f"target not alive: {pid}")
+        return 2
+    if args.comm and args.comm not in comm(pid):
+        log(f"comm mismatch: {comm(pid)!r} lacks {args.comm!r}")
+        return 2
+
+    dev = find_device(args.device)
+    if not dev:
+        log("no gamepad event device found")
+        return 2
+
+    try:
+        fd = os.open(dev, os.O_RDONLY | os.O_NONBLOCK)
+    except OSError as e:
+        log(f"open {dev}: {e}")
+        return 2
+
+    log(f"watch pid={pid} comm={comm(pid)!r} device={dev} select={args.select} start={args.start}")
+    held = set()
+    deadline = time.time() + args.timeout if args.timeout > 0 else None
+    try:
+        while alive(pid):
+            if deadline is not None and time.time() >= deadline:
+                log("timeout")
+                return 0
+            try:
+                ready, _, _ = select.select([fd], [], [], 0.25)
+            except InterruptedError:
+                continue
+            if not ready:
+                continue
+            try:
+                data = os.read(fd, 24 * 64)
+            except OSError:
+                continue
+            for i in range(0, len(data) - len(data) % 24, 24):
+                _, _, typ, code, val = struct.unpack("llHHi", data[i:i + 24])
+                if typ != EV_KEY:
+                    continue
+                if val == 1:
+                    held.add(code)
+                elif val == 0:
+                    held.discard(code)
+                if args.select in held and args.start in held:
+                    log(f"combo seen; SIGTERM {pid}")
+                    try:
+                        os.kill(pid, signal.SIGTERM)
+                    except OSError as e:
+                        log(f"kill: {e}")
+                        return 2
+                    # give the game a moment to save and exit; do not SIGKILL
+                    for _ in range(30):
+                        if not alive(pid):
+                            log("target exited")
+                            return 0
+                        time.sleep(0.1)
+                    log("target still alive after 3s; leaving SIGTERM")
+                    return 1
+        log("target exited")
+        return 0
+    finally:
+        os.close(fd)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

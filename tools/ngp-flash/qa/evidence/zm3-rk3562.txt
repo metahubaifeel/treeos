@@ -1,0 +1,129 @@
+c3bddf281595b7315ebad2be58279c857917f6c1d1f2e645caae955ee0045f78  ondemand
+QA GPU ARM / Mali-G52
+COLLISION difference 4 red ffff0000 overlap ff00ffff cyanBounds 4 0 4 5
+COLLISION difference 12 red ffff0000 overlap ffff0000 cyanBounds 0 0 0 0
+COLLISION normal 4 red ffff0000 overlap ffffffff cyanBounds 0 0 0 0
+QA guard avail=1519888 min=1519888 swap_delta=0
+QA guard avail=1335300 min=1335300 swap_delta=0
+QA guard avail=1154368 min=1154368 swap_delta=0
+QA guard avail=1148068 min=1146052 swap_delta=0
+QA guard avail=1093352 min=1093352 swap_delta=0
+QA guard avail=1042420 min=1042420 swap_delta=0
+QA guard avail=991772 min=991772 swap_delta=0
+QA presents/s 4.43
+QA guard avail=1014200 min=980556 swap_delta=0
+QA guard avail=1009660 min=980556 swap_delta=0
+QA guard avail=1012444 min=980556 swap_delta=0
+QA presents/s 21.79
+QA guard avail=1008916 min=980556 swap_delta=0
+QA guard avail=953892 min=953548 swap_delta=0
+cacheHandlerDictionaryLoop->soundName:music_bg3,playingName:stage3
+QA presents/s 12.50
+QA guard avail=673448 min=673448 swap_delta=0
+QA guard avail=469968 min=469968 swap_delta=0
+QA guard avail=464064 min=462704 swap_delta=0
+QA presents/s 13.28
+QA guard avail=459276 min=459276 swap_delta=0
+QA guard avail=455524 min=455524 swap_delta=0
+QA presents/s 20.22
+QA guard avail=451232 min=451232 swap_delta=0
+QA guard avail=446812 min=446812 swap_delta=0
+创建怪物：14
+创建怪物：14
+QA guard avail=442340 min=442340 swap_delta=0
+rate:1.455
+this._anti.fallList.length:3
+this._anti.fallList[r]：wpsc
+QA presents/s 17.78
+QA guard avail=432416 min=429696 swap_delta=0
+QA guard avail=431200 min=429696 swap_delta=0
+创建怪物：12
+创建怪物：12
+QA presents/s 12.75
+QA guard avail=430700 min=428800 swap_delta=0
+rate:1.455
+this._anti.fallList.length:3
+this._anti.fallList[r]：wptm
+创建怪物：12
+创建怪物：12
+QA guard avail=428164 min=428164 swap_delta=0
+rate:1.455
+this._anti.fallList.length:3
+this._anti.fallList[r]：wpsc
+rate:1.455
+this._anti.fallList.length:3
+this._anti.fallList[r]：wpxt
+QA guard avail=444896 min=424104 swap_delta=0
+创建怪物：12
+创建怪物：12
+rate:1.455
+this._anti.fallList.length:3
+this._anti.fallList[r]：wpxt
+rate:1.455
+this._anti.fallList.length:3
+this._anti.fallList[r]：wpxt
+QA presents/s 9.40
+QA guard avail=516044 min=424104 swap_delta=0
+创建怪物：12
+创建怪物：12
+QA guard avail=516820 min=424104 swap_delta=0
+rate:1.455
+this._anti.fallList.length:3
+this._anti.fallList[r]：wpxt
+创建怪物：12
+创建怪物：12
+QA presents/s 10.93
+QA guard avail=516068 min=424104 swap_delta=0
+rate:1.455
+this._anti.fallList.length:3
+this._anti.fallList[r]：wptm
+QA guard avail=520564 min=424104 swap_delta=0
+QA guard avail=521548 min=424104 swap_delta=0
+rate:1.455
+this._anti.fallList.length:3
+this._anti.fallList[r]：wpsc
+QA presents/s 13.68
+QA guard avail=521544 min=424104 swap_delta=0
+QA guard avail=522136 min=424104 swap_delta=0
+QA guard avail=521616 min=424104 swap_delta=0
+rate:1.455
+this._anti.fallList.length:3
+this._anti.fallList[r]：wpxt
+QA presents/s 15.20
+rate:1.455
+this._anti.fallList.length:3
+this._anti.fallList[r]：wpxt
+rate:1.455
+this._anti.fallList.length:3
+this._anti.fallList[r]：wpxt
+QA guard avail=517332 min=424104 swap_delta=0
+QA guard avail=512292 min=424104 swap_delta=0
+QA presents/s 13.47
+QA guard avail=509012 min=424104 swap_delta=0
+QA guard avail=505236 min=424104 swap_delta=0
+QA guard avail=502052 min=424104 swap_delta=0
+QA presents/s 14.77
+QA guard avail=498272 min=424104 swap_delta=0
+QA guard avail=497640 min=424104 swap_delta=0
+QA presents/s 16.96
+QA guard avail=498152 min=424104 swap_delta=0
+QA guard avail=498400 min=424104 swap_delta=0
+QA guard avail=498908 min=424104 swap_delta=0
+QA presents/s 17.99
+QA guard avail=498148 min=424104 swap_delta=0
+QA guard avail=498152 min=424104 swap_delta=0
+QA presents/s 19.12
+QA guard avail=498200 min=424104 swap_delta=0
+QA guard avail=497688 min=424104 swap_delta=0
+QA guard avail=498108 min=424104 swap_delta=0
+QA presents/s 19.13
+QA guard avail=498360 min=424104 swap_delta=0
+QA guard avail=499368 min=424104 swap_delta=0
+QA presents/s 20.18
+QA guard avail=499620 min=424104 swap_delta=0
+QA guard avail=499620 min=424104 swap_delta=0
+QA guard avail=499620 min=424104 swap_delta=0
+QA presents/s 21.94
+QA guard avail=499368 min=424104 swap_delta=0
+QA guard avail=498608 min=424104 swap_delta=0
+QA_INPUTS_FINISHED

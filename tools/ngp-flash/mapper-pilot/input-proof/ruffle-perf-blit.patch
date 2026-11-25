@@ -1,0 +1,106 @@
+diff --git a/core/src/bitmap/operations.rs b/core/src/bitmap/operations.rs
+index 017f58130..bdc7f1394 100644
+--- a/core/src/bitmap/operations.rs
++++ b/core/src/bitmap/operations.rs
+@@ -1342,15 +1342,10 @@ fn copy_on_cpu<'gc>(
+                     .copy_from_slice(source_read.raw_pixels());
+             } else {
+                 for y in 0..dest_region.height() {
+-                    for x in 0..dest_region.width() {
+-                        let color = source_read
+-                            .get_pixel32_raw(source_region.x_min + x, source_region.y_min + y);
+-                        dest_write.set_pixel32_raw(
+-                            dest_region.x_min + x,
+-                            dest_region.y_min + y,
+-                            color,
+-                        );
+-                    }
++                    let len = dest_region.width() as usize;
++                    let s = ((source_region.y_min + y) * source_read.width() + source_region.x_min) as usize;
++                    let d = ((dest_region.y_min + y) * dest_write.width() + dest_region.x_min) as usize;
++                    dest_write.raw_pixels_mut()[d..d+len].copy_from_slice(&source_read.raw_pixels()[s..s+len]);
+                 }
+             }
+         } else {
+@@ -1360,18 +1355,14 @@ fn copy_on_cpu<'gc>(
+             let opaque = !dest_write.transparency();
+ 
+             for y in 0..dest_region.height() {
+-                for x in 0..dest_region.width() {
+-                    let mut color = source_read
+-                        .get_pixel32_raw(source_region.x_min + x, source_region.y_min + y);
+-                    if blend {
+-                        color = dest_write
+-                            .get_pixel32_raw(dest_region.x_min + x, dest_region.y_min + y)
+-                            .blend_over(&color);
+-                    }
+-                    if opaque {
+-                        color = color.with_alpha(255);
+-                    }
+-                    dest_write.set_pixel32_raw(dest_region.x_min + x, dest_region.y_min + y, color);
++                let len = dest_region.width() as usize;
++                let s = ((source_region.y_min + y) * source_read.width() + source_region.x_min) as usize;
++                let d = ((dest_region.y_min + y) * dest_write.width() + dest_region.x_min) as usize;
++                let src = &source_read.raw_pixels()[s..s+len];
++                let dst = &mut dest_write.raw_pixels_mut()[d..d+len];
++                for (dst, src) in dst.iter_mut().zip(src) {
++                    let c = if blend { dst.blend_over(src) } else { *src };
++                    *dst = if opaque { c.with_alpha(255) } else { c };
+                 }
+             }
+         }
+diff --git a/core/src/display_object/container.rs b/core/src/display_object/container.rs
+index a112c92ac..c8fdd291b 100644
+--- a/core/src/display_object/container.rs
++++ b/core/src/display_object/container.rs
+@@ -1162,11 +1162,8 @@ pub struct RenderIter<'gc> {
+ 
+ impl<'gc> RenderIter<'gc> {
+     fn from_container(src: DisplayObjectContainer<'gc>) -> Self {
+-        Self {
+-            src: src.raw_container().render_list.clone(),
+-            i: 0,
+-            neg_i: src.num_children(),
+-        }
++        let list = src.raw_container().render_list.clone();
++        Self { neg_i: list.len(), src: list, i: 0 }
+     }
+ }
+ 
+diff --git a/core/src/player.rs b/core/src/player.rs
+index 66bffb5f3..12c7ef762 100644
+--- a/core/src/player.rs
++++ b/core/src/player.rs
+@@ -329,6 +329,7 @@ pub struct Player {
+     /// and compensate for small lags by "catching up" (up to MAX_FRAMES_PER_TICK).
+     frame_accumulator: f64,
+     recent_run_frame_timings: VecDeque<f64>,
++    profile_frames: u64,
+ 
+     /// Faked time passage for fooling hand-written busy-loop FPS limiters.
+     time_offset: u32,
+@@ -506,6 +507,8 @@ impl Player {
+         }
+     }
+ 
++    pub fn completed_frames(&self) -> u64 { self.profile_frames }
++
+     pub fn tick(&mut self, dt: f64) {
+         if !self.is_playing() {
+             return;
+@@ -522,6 +525,7 @@ impl Player {
+             self.run_frame();
+             let elapsed = timer.elapsed().as_millis() as f64;
+ 
++            self.profile_frames = self.profile_frames.wrapping_add(1);
+             self.add_frame_timing(elapsed);
+ 
+             self.frame_accumulator -= frame_time;
+@@ -2962,6 +2966,7 @@ impl PlayerBuilder {
+                 frame_phase: Default::default(),
+                 frame_accumulator: 0.0,
+                 recent_run_frame_timings: VecDeque::with_capacity(10),
++                profile_frames: 0,
+                 start_time: Instant::now(),
+                 time_offset: 0,
+                 time_til_next_timer: None,

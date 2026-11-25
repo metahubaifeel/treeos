@@ -1,0 +1,38 @@
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -20,6 +20,7 @@
+ use ruffle_core::limits::ExecutionLimit;
+ use ruffle_core::tag_utils::SwfMovie;
+ mod net_navigator;
++mod tick_trace;
+ use ruffle_core::{PlayerBuilder, PlayerEvent, ViewportDimensions};
+ 
+ use ruffle_render::quality::StageQuality;
+@@ -454,6 +455,7 @@
+     };
+     let skip = std::env::var("FLASH_PRESENT_SKIP").as_deref() == Ok("1");
+     let profile = std::env::var("FLASH_PROFILE_TIMINGS").as_deref() == Ok("1");
++    let mut trace = if profile { tick_trace::Trace::open() } else { None };
+     let mut window_start = Instant::now();
+     let mut last_draw = window_start;
+     let mut last_draw_frame = None;
+@@ -807,7 +809,11 @@
+         if dt > 0 {
+             last_frame_time = new_time;
+             if let Ok(mut player) = player.lock() {
++                let stamp = trace.as_ref().and_then(|t| t.start().map(|s| (s, player.completed_frames())));
+                 player.tick(dt as f64 / 1000.0);
++                if let (Some(t), Some((s, before))) = (&mut trace, stamp) {
++                    t.end(s, player.completed_frames().wrapping_sub(before));
++                }
+                 if profile { tick_us += new_time.elapsed().as_micros(); }
+                 // Cap presentation only. Never halve the movie rate, dt, audio or input polling.
+                 let now = Instant::now();
+@@ -862,6 +868,7 @@
+                 if profile && window_start.elapsed().as_secs() >= 5 {
+                     let elapsed = window_start.elapsed().as_secs_f64();
+                     eprintln!("perf target={:.1} logic/s={:.1} presents/s={:.1} tick_ms/s={:.1} draw_ms/s={:.1} swap_ms/s={:.1}",player.frame_rate(),frame.wrapping_sub(window_frames) as f64/elapsed,rendered as f64/elapsed,tick_us as f64/1000.0/elapsed,draw_us as f64/1000.0/elapsed,swap_us as f64/1000.0/elapsed);
++                    if let Some(t) = &mut trace { t.flush(); }
+                     window_start=Instant::now(); window_frames=frame; rendered=0; tick_us=0; draw_us=0; swap_us=0;
+                 }
+                 // Sleep only within the available frame/timer budget (tick sampled at new_time).

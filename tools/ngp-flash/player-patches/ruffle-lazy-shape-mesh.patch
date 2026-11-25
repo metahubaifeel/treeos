@@ -1,0 +1,52 @@
+diff --git a/core/src/display_object/graphic.rs b/core/src/display_object/graphic.rs
+index be263fbbb..2117c2f4a 100644
+--- a/core/src/display_object/graphic.rs
++++ b/core/src/display_object/graphic.rs
+@@ -51,15 +51,12 @@ impl<'gc> Graphic<'gc> {
+         swf_shape: swf::Shape,
+         movie: Arc<SwfMovie>,
+     ) -> Self {
+-        let library = context.library.library_for_movie(movie.clone()).unwrap();
+         let shared = GraphicShared {
+             id: swf_shape.id,
+             bounds: swf_shape.shape_bounds,
+-            render_handle: Some(
+-                context
+-                    .renderer
+-                    .register_shape((&swf_shape).into(), &MovieLibrarySource { library }),
+-            ),
++            // Keep the SWF geometry for bounds and hit tests; realize the GPU
++            // mesh once, only when something actually renders this definition.
++            render_handle: Some(OnceCell::new()),
+             shape: swf_shape,
+             movie,
+         };
+@@ -191,10 +188,15 @@ impl<'gc> TDisplayObject<'gc> for Graphic<'gc> {
+ 
+         if let Some(drawing) = self.0.drawing.get() {
+             drawing.borrow().render(context);
+-        } else if let Some(render_handle) = self.0.shared.get().render_handle.clone() {
+-            context
+-                .commands
+-                .render_shape(render_handle, context.transform_stack.transform())
++        } else {
++            let shared = self.0.shared.get();
++            if let Some(slot) = &shared.render_handle {
++                let handle = slot.get_or_init(|| {
++                    let library = context.library.library_for_movie(shared.movie.clone()).expect("rendered Graphic has a movie library");
++                    context.renderer.register_shape((&shared.shape).into(), &MovieLibrarySource { library })
++                });
++                context.commands.render_shape(handle.clone(), context.transform_stack.transform());
++            }
+         }
+     }
+ 
+@@ -265,7 +267,7 @@ impl<'gc> TDisplayObject<'gc> for Graphic<'gc> {
+ struct GraphicShared {
+     id: CharacterId,
+     shape: swf::Shape,
+-    render_handle: Option<ShapeHandle>,
++    render_handle: Option<OnceCell<ShapeHandle>>,
+     bounds: Rectangle<Twips>,
+     movie: Arc<SwfMovie>,
+ }

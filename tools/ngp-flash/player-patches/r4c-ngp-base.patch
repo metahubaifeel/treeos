@@ -1,0 +1,1029 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -4,8 +4,13 @@
+ edition = "2024"
+ 
+ [dependencies]
+-sdl2 = { version = "0.38.0", features = ["static-link", "use-pkgconfig"] }
+-ruffle_core = { git = "https://github.com/ruffle-rs/ruffle", branch = "master", features = [
++ureq = { version = "2.12", default-features = false }
++futures = "0.3"
++async-channel = "2.5"
++encoding_rs = "0.8"
++indexmap = "2"
++sdl2 = "0.38.0"
++ruffle_core = { path = "../ruffle/core", features = [
+     "audio",
+     "symphonia",
+     "mp3",
+@@ -15,7 +20,7 @@
+     "default_compatibility_rules",
+     "default_font",
+ ] }
+-ruffle_render = { git = "https://github.com/ruffle-rs/ruffle", branch = "master" }
++ruffle_render = { path = "../ruffle/render" }
+ ruffle_render_glow = { path = "ruffle_render_glow" }
+ anyhow = "1.0"
+ glow = { git = "https://github.com/grovesNL/glow", branch = "main", features = []}
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -167,7 +167,6 @@
+ [[package]]
+ name = "build_playerglobal"
+ version = "0.1.0"
+-source = "git+https://github.com/ruffle-rs/ruffle?branch=master#563854a8911eda672b1836fb374063162879035d"
+ dependencies = [
+  "clap",
+  "convert_case",
+@@ -799,7 +798,6 @@
+ [[package]]
+ name = "flv-rs"
+ version = "0.1.0"
+-source = "git+https://github.com/ruffle-rs/ruffle?branch=master#563854a8911eda672b1836fb374063162879035d"
+ dependencies = [
+  "bitflags 2.10.0",
+  "thiserror",
+@@ -1527,7 +1525,6 @@
+ [[package]]
+ name = "pixel_bender"
+ version = "0.1.0"
+-source = "git+https://github.com/ruffle-rs/ruffle?branch=master#563854a8911eda672b1836fb374063162879035d"
+ dependencies = [
+  "byteorder",
+  "num-derive",
+@@ -1536,12 +1533,6 @@
+ ]
+ 
+ [[package]]
+-name = "pkg-config"
+-version = "0.3.32"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
+-
+-[[package]]
+ name = "png"
+ version = "0.18.0"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+@@ -1735,8 +1726,12 @@
+ version = "0.1.0"
+ dependencies = [
+  "anyhow",
++ "async-channel",
+  "chrono",
++ "encoding_rs",
++ "futures",
+  "glow",
++ "indexmap",
+  "ron",
+  "ruffle_core",
+  "ruffle_render",
+@@ -1746,6 +1741,7 @@
+  "tracing",
+  "tracing-log",
+  "tracing-subscriber",
++ "ureq",
+  "url",
+  "vitasdk-sys",
+ ]
+@@ -1753,7 +1749,6 @@
+ [[package]]
+ name = "ruffle_common"
+ version = "0.1.0"
+-source = "git+https://github.com/ruffle-rs/ruffle?branch=master#563854a8911eda672b1836fb374063162879035d"
+ dependencies = [
+  "fnv",
+  "gc-arena",
+@@ -1764,7 +1759,6 @@
+ [[package]]
+ name = "ruffle_core"
+ version = "0.1.0"
+-source = "git+https://github.com/ruffle-rs/ruffle?branch=master#563854a8911eda672b1836fb374063162879035d"
+ dependencies = [
+  "async-channel",
+  "bitflags 2.10.0",
+@@ -1825,7 +1819,6 @@
+ [[package]]
+ name = "ruffle_macros"
+ version = "0.1.0"
+-source = "git+https://github.com/ruffle-rs/ruffle?branch=master#563854a8911eda672b1836fb374063162879035d"
+ dependencies = [
+  "proc-macro2",
+  "quote",
+@@ -1835,7 +1828,6 @@
+ [[package]]
+ name = "ruffle_render"
+ version = "0.1.0"
+-source = "git+https://github.com/ruffle-rs/ruffle?branch=master#563854a8911eda672b1836fb374063162879035d"
+ dependencies = [
+  "byteorder",
+  "enum-map",
+@@ -1873,7 +1865,6 @@
+ [[package]]
+ name = "ruffle_video"
+ version = "0.1.0"
+-source = "git+https://github.com/ruffle-rs/ruffle?branch=master#563854a8911eda672b1836fb374063162879035d"
+ dependencies = [
+  "ruffle_render",
+  "slotmap",
+@@ -1884,7 +1875,6 @@
+ [[package]]
+ name = "ruffle_wstr"
+ version = "0.1.0"
+-source = "git+https://github.com/ruffle-rs/ruffle?branch=master#563854a8911eda672b1836fb374063162879035d"
+ 
+ [[package]]
+ name = "rustc-hash"
+@@ -1971,7 +1961,6 @@
+ dependencies = [
+  "cfg-if",
+  "libc",
+- "pkg-config",
+  "version-compare",
+ ]
+ 
+@@ -2109,7 +2098,6 @@
+ [[package]]
+ name = "swf"
+ version = "0.2.2"
+-source = "git+https://github.com/ruffle-rs/ruffle?branch=master#563854a8911eda672b1836fb374063162879035d"
+ dependencies = [
+  "bitflags 2.10.0",
+  "bitstream-io",
+@@ -2435,6 +2423,18 @@
+ checksum = "f6ccf251212114b54433ec949fd6a7841275f9ada20dddd2f29e9ceea4501493"
+ 
+ [[package]]
++name = "ureq"
++version = "2.12.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "02d1a66277ed75f640d608235660df48c8e3c19f3b4edb6a263315626cc3c01d"
++dependencies = [
++ "base64",
++ "log",
++ "once_cell",
++ "url",
++]
++
++[[package]]
+ name = "url"
+ version = "2.5.7"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+--- a/ruffle_render_glow/Cargo.toml
++++ b/ruffle_render_glow/Cargo.toml
+@@ -24,8 +24,8 @@
+ [dependencies]
+ log = "0.4"
+ glow = { git = "https://github.com/grovesNL/glow", branch = "main", features = [] }
+-ruffle_render = { git = "https://github.com/ruffle-rs/ruffle", branch = "master", features = ["tessellator"] }
++ruffle_render = { path = "../../ruffle/render", features = ["tessellator"] }
+ bytemuck = { version = "1.23.2", features = ["derive"] }
+-swf = { git = "https://github.com/ruffle-rs/ruffle", branch = "master" }
++swf = { path = "../../ruffle/swf" }
+ thiserror = "2.0.16"
+ image = { version = "0.25.6", default-features = false }
+\ 文件末尾没有换行符
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -19,6 +19,7 @@
+ use ruffle_core::events::{GamepadButton, KeyCode, MouseButton, ParseEnumError, TextControlCode};
+ use ruffle_core::limits::ExecutionLimit;
+ use ruffle_core::tag_utils::SwfMovie;
++mod net_navigator;
+ use ruffle_core::{PlayerBuilder, PlayerEvent, ViewportDimensions};
+ 
+ use ruffle_render::quality::StageQuality;
+@@ -157,7 +158,7 @@
+ const BASE_PATH: &str = "/switch/ruffle";
+ 
+ #[cfg(not(any(target_os = "horizon", target_os = "vita")))]
+-const BASE_PATH: &str = "./ruffle";
++const BASE_PATH: &str = "./ruffle_data";
+ 
+ const CONFIG: &str = "
+ Config(
+@@ -341,13 +342,55 @@
+         scale_factor: 1.0,
+     };
+ 
++    // Ask SDL for the real panel mode instead of hardcoding a size: on a
++    // 1024x768 panel a 640x480 window would only fill part of the screen.
+     #[cfg(not(any(target_os = "horizon", target_os = "vita")))]
+-    let mut dimensions = ViewportDimensions {
+-        width: 1280,
+-        height: 720,
+-        scale_factor: 1.0,
++    let mut dimensions = {
++        // Prefer the largest available mode: kmsdrm can pick a small default
++        // while the panel is bigger, which leaves clear-colour margins.
++        let (mut w, mut h) = (640u32, 480u32);
++        let count = sdl2_video.num_display_modes(0).unwrap_or(0);
++        let mut best = 0u64;
++        for i in 0..count {
++            if let Ok(m) = sdl2_video.display_mode(0, i) {
++                let area = m.w as u64 * m.h as u64;
++                if area > best {
++                    best = area;
++                    w = m.w as u32;
++                    h = m.h as u32;
++                }
++            }
++        }
++        println!("panel: {}x{} ({} modes, current {:?})", w, h, count,
++                 sdl2_video.current_display_mode(0).map(|m| (m.w, m.h)));
++        ViewportDimensions { width: w, height: h, scale_factor: 1.0 }
+     };
+ 
++    // One-shot network self-test: only when /home/ark/net-test.url exists.
++    if let Ok(url) = std::fs::read_to_string("/home/ark/net-test.url") {
++        let url = url.trim();
++        let allowed = std::env::var("FLASH_NETWORK_HOSTS").unwrap_or_default();
++        let host_ok = url::Url::parse(url)
++            .ok()
++            .and_then(|u| u.host_str().map(|h| h.to_ascii_lowercase()))
++            .map(|h| allowed.split(',').any(|a| a.trim().eq_ignore_ascii_case(&h)))
++            .unwrap_or(false);
++        if host_ok {
++            match ureq::get(url).call() {
++                Ok(r) => {
++                    use std::io::Read as _;
++                    let mut body = Vec::new();
++                    let _ = r.into_reader().take(4096).read_to_end(&mut body);
++                    let head = String::from_utf8_lossy(&body[..body.len().min(80)]).replace('\n', " ");
++                    println!("net-test OK {} bytes head={}", body.len(), head);
++                }
++                Err(e) => println!("net-test FAIL {e}"),
++            }
++        } else {
++            println!("net-test skipped (host not whitelisted): {}", url);
++        }
++    }
++
+     let sdl2_window = sdl2_video
+         .window("ruffle4consoles", dimensions.width, dimensions.height)
+         .opengl()
+@@ -378,6 +421,28 @@
+         std::process::exit(1);
+     }
+ 
++    // The stage must keep the movie's own size (games that set noScale lay
++    // themselves out for it); the renderer letterboxes that onto the panel.
++    let (dimensions_output_w, dimensions_output_h) = sdl2_window.drawable_size();
++    if let Ok(m) = &movie {
++        dimensions.width = m.width().to_pixels() as u32;
++        dimensions.height = m.height().to_pixels() as u32;
++        unsafe {
++            std::env::set_var("FLASH_OUTPUT_W", dimensions_output_w.to_string());
++            std::env::set_var("FLASH_OUTPUT_H", dimensions_output_h.to_string());
++        }
++        println!("stage {}x{} on panel {}x{}", dimensions.width, dimensions.height, dimensions_output_w, dimensions_output_h);
++    }
++
++    // Inverse of the final presentation transform. SDL mouse coordinates use
++    // logical window pixels and a top-left origin; GL uses drawable pixels.
++    let (vx, vy, vw, vh) = GlowRenderBackend::fit_rect(dimensions.width as i32, dimensions.height as i32,
++        dimensions_output_w as i32, dimensions_output_h as i32);
++    let to_stage = |u:f64,v:f64| (
++        (u*dimensions_output_w as f64-vx as f64)*dimensions.width as f64/vw.max(1) as f64,
++        (v*dimensions_output_h as f64-(dimensions_output_h as i32-vy-vh) as f64)*dimensions.height as f64/vh.max(1) as f64);
++    let mouse_pos = |x:i32,y:i32| { let (w,h)=sdl2_window.size(); to_stage(x as f64/w.max(1) as f64,y as f64/h.max(1) as f64) };
++
+     // Glow can only realistically be used in vita and horizon, need
+     let context = Arc::new(unsafe {
+         glow::Context::from_loader_function(|s| sdl2_video.gl_get_proc_address(s) as *const _)
+@@ -402,17 +467,28 @@
+         .with_storage(Box::new(DiskStorageBackend::new(std::path::PathBuf::from(
+             storage_path,
+         ))))
+-        .with_navigator(NullNavigatorBackend::with_base_path(executor_base_path, &executor).unwrap())
++        .with_navigator({
++            let inner = NullNavigatorBackend::with_base_path(executor_base_path, &executor).unwrap();
++            let hosts = std::env::var("FLASH_NETWORK_HOSTS").unwrap_or_default();
++            if !hosts.trim().is_empty() {
++                println!("network whitelist: {}", hosts);
++            }
++            net_navigator::AnyNavigator::new(inner, &hosts)
++        })
+         .with_movie(movie.unwrap())
+         .with_viewport_dimensions(dimensions.width, dimensions.height, dimensions.scale_factor)
+         .with_fullscreen(true)
+         .with_letterbox(letterbox_config)
++        .with_spoofed_url(std::env::var("FLASH_SPOOF_URL").ok().filter(|v| !v.is_empty()))
+         .with_player_runtime(ruffle_core::PlayerRuntime::AIR)
+         .with_gamepad_button_mapping(gamepad_button_mapping)
+         .with_autoplay(true)
+         .with_log(ConsoleLogBackend::default())
+         .build();
+ 
++    // The renderer's viewport starts from the movie size; force it to the real
++    // drawable so the stage is scaled to the panel instead of a corner.
++    player.lock().unwrap().set_viewport_dimensions(dimensions);
+     last_frame_time = Instant::now();
+     player.lock().unwrap().preload(&mut ExecutionLimit::none());
+ 
+@@ -435,10 +511,12 @@
+                     win_event: sdl2::event::WindowEvent::Resized(w, h),
+                     ..
+                 } => {
++                    // The stage keeps the movie's size; the panel size is handled
++                    // by the renderer's letterbox rect. Do not feed the window
++                    // size back into the player or the stage gets scaled twice.
+                     if w > 0 && h > 0 {
+-                        dimensions.width = w as u32;
+-                        dimensions.height = h as u32;
+-                        player.lock().unwrap().set_viewport_dimensions(dimensions);
++                        println!("window resized to {}x{} (stage stays {}x{})", w, h,
++                                 dimensions.width, dimensions.height);
+                     }
+                 }
+ 
+@@ -501,9 +579,9 @@
+                     xrel: _,
+                     yrel: _,
+                 } => {
++                    let (x,y) = mouse_pos(x,y);
+                     player.lock().unwrap().handle_event(PlayerEvent::MouseMove {
+-                        x: x.into(),
+-                        y: y.into(),
++                        x, y,
+                     });
+                 }
+ 
+@@ -519,9 +597,9 @@
+                 } => {
+                     let ruffle_button = sdl_mousebutton_to_ruffle(mouse_btn);
+                     if let Some(ruffle_button) = ruffle_button {
++                        let (x,y) = mouse_pos(x,y);
+                         player.lock().unwrap().handle_event(PlayerEvent::MouseDown {
+-                            x: x.into(),
+-                            y: y.into(),
++                            x, y,
+                             button: ruffle_button,
+                             index: None,
+                         });
+@@ -540,9 +618,9 @@
+                 } => {
+                     let ruffle_button = sdl_mousebutton_to_ruffle(mouse_btn);
+                     if let Some(ruffle_button) = ruffle_button {
++                        let (x,y) = mouse_pos(x,y);
+                         player.lock().unwrap().handle_event(PlayerEvent::MouseUp {
+-                            x: x.into(),
+-                            y: y.into(),
++                            x, y,
+                             button: ruffle_button,
+                         });
+                     }
+@@ -558,9 +636,9 @@
+                     dy: _,
+                     pressure: _,
+                 } => {
++                    let (x,y)=to_stage(x.into(),y.into());
+                     player.lock().unwrap().handle_event(PlayerEvent::MouseMove {
+-                        x: x as f64 * dimensions.width as f64,
+-                        y: y as f64 * dimensions.height as f64,
++                        x,y,
+                     });
+                 }
+ 
+@@ -574,9 +652,9 @@
+                     dy: _,
+                     pressure: _,
+                 } => {
++                    let (x,y)=to_stage(x.into(),y.into());
+                     player.lock().unwrap().handle_event(PlayerEvent::MouseDown {
+-                        x: x as f64 * dimensions.width as f64,
+-                        y: y as f64 * dimensions.height as f64,
++                        x,y,
+                         button: MouseButton::Left,
+                         index: None,
+                     });
+@@ -592,9 +670,9 @@
+                     dy: _,
+                     pressure: _,
+                 } => {
++                    let (x,y)=to_stage(x.into(),y.into());
+                     player.lock().unwrap().handle_event(PlayerEvent::MouseUp {
+-                        x: x as f64 * dimensions.width as f64,
+-                        y: y as f64 * dimensions.height as f64,
++                        x,y,
+                         button: MouseButton::Left,
+                     });
+                 }
+@@ -692,6 +770,12 @@
+                     }
+                 }
+ 
++                sdl2::event::Event::KeyDown { scancode: Some(s), repeat: false, .. } |
++                sdl2::event::Event::KeyUp { scancode: Some(s), repeat: false, .. } if ngp_key(s).is_some() => {
++                    let key = ngp_key(s).unwrap();
++                    let down = matches!(event, sdl2::event::Event::KeyDown { .. });
++                    player.lock().unwrap().handle_event(if down { PlayerEvent::KeyDown { key } } else { PlayerEvent::KeyUp { key } });
++                }
+                 sdl2::event::Event::KeyDown { scancode, .. } => {
+                     if scancode == Some(sdl2::keyboard::Scancode::Backspace) {
+                         player
+@@ -713,7 +797,46 @@
+             if let Ok(mut player) = player.lock() {
+                 player.tick(dt as f64 / 1000.0);
+                 if player.needs_render() {
++                    // Player viewport stays at the stage size; the panel size is
++                    // handled by the renderer's letterbox rect.
++                    player.set_viewport_dimensions(dimensions);
+                     player.render();
++                    // Optional one-shot frame dump for diagnosing what the panel
++                    // really gets, without any host-side screenshot.
++                    if let Ok(path) = std::env::var("FLASH_DUMP_FRAME") {
++                        static mut DUMPED: bool = false;
++                        static mut FRAMES: u32 = 0;
++                        unsafe {
++                            FRAMES += 1;
++                            let dump_at: u32 = std::env::var("FLASH_DUMP_AT").ok().and_then(|v| v.parse().ok()).unwrap_or(420);
++                            if !DUMPED && FRAMES > dump_at {
++                                let (w, h) = sdl2_window.drawable_size();
++                                if w > 0 && h > 0 {
++                                    let sz = (w * h * 4) as usize;
++                                    let mut buf = vec![0u8; sz];
++                                    {
++                                        use glow::HasContext;
++                                        let ctx = glow::Context::from_loader_function(|s| {
++                                            sdl2_video.gl_get_proc_address(s) as *const _
++                                        });
++                                        ctx.read_pixels(0, 0, w as i32, h as i32,
++                                            glow::RGBA, glow::UNSIGNED_BYTE,
++                                            glow::PixelPackData::Slice(Some(&mut buf)));
++                                    }
++                                    if let Ok(mut f) = std::fs::File::create(&path) {
++                                        use std::io::Write;
++                                        let _ = write!(f, "P6\n{} {}\n255\n", w, h);
++                                        for y in (0..h).rev() {
++                                            let _ = f.write_all(&buf[y as usize * w as usize * 4..(y as usize + 1) * w as usize * 4]
++                                                .chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect::<Vec<u8>>());
++                                        }
++                                    }
++                                    println!("dumped frame to {} ({}x{})", path, w, h);
++                                }
++                                DUMPED = true;
++                            }
++                        }
++                    }
+                     sdl2_window.gl_swap_window();
+                 }
+             }
+@@ -722,6 +845,24 @@
+     drop(controllers);
+ }
+ 
++fn ngp_key(s: sdl2::keyboard::Scancode) -> Option<ruffle_core::events::KeyDescriptor> {
++    use ruffle_core::events::{KeyDescriptor, KeyLocation, LogicalKey, NamedKey, PhysicalKey as P};
++    use sdl2::keyboard::Scancode as S;
++    const LETTERS: [P;26] = [P::KeyA,P::KeyB,P::KeyC,P::KeyD,P::KeyE,P::KeyF,P::KeyG,P::KeyH,P::KeyI,P::KeyJ,P::KeyK,P::KeyL,P::KeyM,P::KeyN,P::KeyO,P::KeyP,P::KeyQ,P::KeyR,P::KeyS,P::KeyT,P::KeyU,P::KeyV,P::KeyW,P::KeyX,P::KeyY,P::KeyZ];
++    const DIGITS: [P;10] = [P::Digit1,P::Digit2,P::Digit3,P::Digit4,P::Digit5,P::Digit6,P::Digit7,P::Digit8,P::Digit9,P::Digit0];
++    let n=s as i32;
++    let (physical_key,logical_key) = if (S::A as i32..=S::Z as i32).contains(&n) {
++        let i=(n-S::A as i32) as usize; (LETTERS[i],LogicalKey::Character((b'a'+i as u8) as char))
++    } else if (S::Num1 as i32..=S::Num0 as i32).contains(&n) {
++        let i=(n-S::Num1 as i32) as usize; (DIGITS[i],LogicalKey::Character((b'0'+((i+1)%10) as u8) as char))
++    } else { match s {
++        S::Space => (P::Space,LogicalKey::Character(' ')),
++        S::Left => (P::ArrowLeft,LogicalKey::Named(NamedKey::ArrowLeft)), S::Right => (P::ArrowRight,LogicalKey::Named(NamedKey::ArrowRight)),
++        S::Up => (P::ArrowUp,LogicalKey::Named(NamedKey::ArrowUp)), S::Down => (P::ArrowDown,LogicalKey::Named(NamedKey::ArrowDown)), _=>return None,
++    }};
++    Some(KeyDescriptor { physical_key,logical_key,key_location:KeyLocation::Standard })
++}
++
+ fn sdl_gamepadbutton_to_ruffle(button: sdl2::controller::Button) -> Option<GamepadButton> {
+     return match button {
+         sdl2::controller::Button::DPadUp => Some(GamepadButton::DPadUp),
+@@ -736,6 +877,9 @@
+         sdl2::controller::Button::Back => Some(GamepadButton::Select),
+         sdl2::controller::Button::RightShoulder => Some(GamepadButton::RightTrigger),
+         sdl2::controller::Button::LeftShoulder => Some(GamepadButton::LeftTrigger),
++        // NGP: physical R1 (b5) has its own SDL slot. Preserve A, Start,
++        // Select, sticks and native click; keycode comes from this game's RON.
++        sdl2::controller::Button::Paddle1 => Some(GamepadButton::RightTrigger2),
+         _ => None,
+     };
+ }
+--- a/ruffle_render_glow/src/lib.rs
++++ b/ruffle_render_glow/src/lib.rs
+@@ -113,6 +113,8 @@
+ impl SyncHandle for QueueSyncHandle {}
+ 
+ pub struct GlowRenderBackend {
++    output_width: i32,
++    output_height: i32,
+     /// glow context
+     gl: Arc<glow::Context>,
+ 
+@@ -184,7 +186,9 @@
+         #[cfg(not(target_os = "vita"))] quality: StageQuality,
+         #[cfg(target_os = "vita")] _quality: StageQuality,
+     ) -> Result<Self, Error> {
+-        log::info!("Creating glow context.");
++        log::info!("Creating glow context (panel {}x{}).",
++            std::env::var("FLASH_OUTPUT_W").unwrap_or_default(),
++            std::env::var("FLASH_OUTPUT_H").unwrap_or_default());
+         unsafe {
+             let gl = glow_context;
+ 
+@@ -229,6 +233,9 @@
+             let mut renderer = Self {
+                 gl,
+ 
++                output_width: std::env::var("FLASH_OUTPUT_W").ok().and_then(|v| v.parse().ok()).unwrap_or(0),
++                output_height: std::env::var("FLASH_OUTPUT_H").ok().and_then(|v| v.parse().ok()).unwrap_or(0),
++
+                 msaa_buffers: None,
+                 #[cfg(not(target_os = "vita"))]
+                 msaa_sample_count,
+@@ -793,6 +800,22 @@
+         }
+     }
+ 
++    /// Pixel rect the stage is drawn into: letterboxed inside the panel.
++    fn stage_rect(&self) -> (i32, i32, i32, i32) {
++        Self::fit_rect(self.renderbuffer_width, self.renderbuffer_height, self.output_width, self.output_height)
++    }
++
++    pub fn fit_rect(rw: i32, rh: i32, ow: i32, oh: i32) -> (i32,i32,i32,i32) {
++        let (rw,rh) = (rw.max(1),rh.max(1));
++        if ow <= 0 || oh <= 0 || (ow == rw && oh == rh) {
++            return (0, 0, rw, rh);
++        }
++        let scale = (ow as f32 / rw as f32).min(oh as f32 / rh as f32);
++        let w = (rw as f32 * scale).round() as i32;
++        let h = (rh as f32 * scale).round() as i32;
++        ((ow - w) / 2, (oh - h) / 2, w, h)
++    }
++
+     fn begin_frame(&mut self, clear: Color) {
+         unsafe {
+             self.active_program = std::ptr::null();
+@@ -809,8 +832,22 @@
+                 gl.bind_framebuffer(glow::FRAMEBUFFER, Some(msaa_buffers.render_framebuffer));
+             }
+ 
+-            self.gl
+-                .viewport(0, 0, self.renderbuffer_width, self.renderbuffer_height);
++            // Never use the panel-sized presentation rect inside the movie-sized
++            // MSAA attachment: pixels outside that FBO are irretrievably clipped.
++            let (vx, vy, vw, vh) = if self.msaa_buffers.is_some() {
++                (0, 0, self.renderbuffer_width, self.renderbuffer_height)
++            } else {
++                self.stage_rect()
++            };
++            {
++                static TRACED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
++                if !TRACED.swap(true, std::sync::atomic::Ordering::Relaxed) {
++                    log::info!("frame vp {}x{}+{}+{} stage {}x{} panel {}x{}",
++                        vw, vh, vx, vy, self.renderbuffer_width, self.renderbuffer_height,
++                        self.output_width, self.output_height);
++                }
++            }
++            self.gl.viewport(vx, vy, vw, vh);
+             self.gl.disable(glow::DEPTH_TEST);
+ 
+             self.set_stencil_state();
+@@ -860,12 +897,12 @@
+                 // Render the resolved framebuffer texture to a quad on the screen.
+                 gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+ 
+-                self.gl.viewport(
+-                    0,
+-                    0,
+-                    self.renderbuffer_width as i32,
+-                    self.renderbuffer_height,
+-                );
++                // Only the final presentation quad is fitted to the panel. Clear
++                // the whole backbuffer first (glClear ignores the viewport).
++                gl.clear_color(0.0, 0.0, 0.0, 1.0);
++                gl.clear(glow::COLOR_BUFFER_BIT);
++                let (vx, vy, vw, vh) = self.stage_rect();
++                self.gl.viewport(vx, vy, vw, vh);
+ 
+                 let program = &self.bitmap_program;
+                 self.gl.use_program(Some(program.program));
+@@ -1062,8 +1099,8 @@
+ 
+             commands.execute(self);
+ 
+-            // HACK: restore viewport here
+-            //self.set_viewport_dimensions(self.renderbuffer_width as u32, self.renderbuffer_height as u32);
++            // After this pass we return to framebuffer 0. begin_frame selects
++            // the movie viewport separately whenever it binds the MSAA FBO.
+             self.view_matrix = [
+                 [1.0 / (self.renderbuffer_width as f32 / 2.0), 0.0, 0.0, 0.0],
+                 [
+@@ -1085,6 +1122,8 @@
+             );
+             self.gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+         }
++        let (vx, vy, vw, vh) = self.stage_rect();
++        unsafe { self.gl.viewport(vx, vy, vw, vh) };
+         Some(Box::new(QueueSyncHandle {
+             texture: handle,
+             bounds,
+@@ -1100,6 +1139,13 @@
+     }
+ 
+     fn set_viewport_dimensions(&mut self, dimensions: ViewportDimensions) {
++        // Cheap no-op when nothing changed: the player may call this per frame.
++        if dimensions.width as i32 == self.renderbuffer_width
++            && dimensions.height as i32 == self.renderbuffer_height
++            && (dimensions.scale_factor - self.viewport_scale_factor as f64).abs() < f64::EPSILON
++        {
++            return;
++        }
+         // Build view matrix based on canvas size.
+         self.view_matrix = [
+             [1.0 / (dimensions.width as f32 / 2.0), 0.0, 0.0, 0.0],
+@@ -1215,38 +1261,49 @@
+         &mut self,
+         handle: &BitmapHandle,
+         bitmap: Bitmap<'_>,
+-        mut region: PixelRegion,
++        region: PixelRegion,
+     ) -> Result<(), BitmapError> {
++        // Only the dirty sub-rect may be written: the GPU copy can be newer than
++        // the CPU bitmap, and GLES2 has no UNPACK_ROW_LENGTH, so copy it tight.
++        let entry = as_registry_data(handle);
++        let texture = entry.texture;
++        let (format, bpp, src) = match bitmap.format() {
++            BitmapFormat::Rgb | BitmapFormat::Yuv420p => (glow::RGB, 3usize, bitmap.to_rgb()),
++            BitmapFormat::Rgba | BitmapFormat::Yuva420p => (glow::RGBA, 4usize, bitmap.to_rgba()),
++        };
++        let (sw, sh) = (src.width() as usize, src.height() as usize);
++        let (x0, y0) = (region.x_min as usize, region.y_min as usize);
++        let (x1, y1) = (region.x_max as usize, region.y_max as usize);
++        if x0 >= x1 || y0 >= y1 || x1 > sw || y1 > sh {
++            return Ok(());
++        }
++        let stride = sw * bpp;
++        let data = src.data();
++        if data.len() < stride * sh {
++            return Err(BitmapError::Unimplemented("short bitmap buffer".into()));
++        }
++        let row = (x1 - x0) * bpp;
++        let mut tight = Vec::with_capacity(row * (y1 - y0));
++        for y in y0..y1 {
++            let p = y * stride + x0 * bpp;
++            tight.extend_from_slice(&data[p..p + row]);
++        }
+         unsafe {
+-            let texture = as_registry_data(handle).texture;
+-
+             self.gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+-
+-            let (format, mut bitmap) = match bitmap.format() {
+-                BitmapFormat::Rgb | BitmapFormat::Yuv420p => (glow::RGB, bitmap.to_rgb()),
+-                BitmapFormat::Rgba | BitmapFormat::Yuva420p => (glow::RGBA, bitmap.to_rgba()),
+-            };
+-
+-            if self.clamp_bitmap(&mut bitmap, format) {
+-                // If we're updating a resized texture, just redo the whole thing.
+-                // We can't trivially map pixel regions as we use a filter to resize.
+-                region = PixelRegion::for_whole_size(bitmap.width(), bitmap.height());
+-            }
+-
+-            self.gl.tex_image_2d(
++            self.gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, 1);
++            self.gl.tex_sub_image_2d(
+                 glow::TEXTURE_2D,
+                 0,
+-                format as i32,
+-                region.width() as i32,
+-                region.height() as i32,
+-                0,
++                x0 as i32,
++                y0 as i32,
++                (x1 - x0) as i32,
++                (y1 - y0) as i32,
+                 format,
+                 glow::UNSIGNED_BYTE,
+-                glow::PixelUnpackData::Slice(Some(bitmap.data())),
++                glow::PixelUnpackData::Slice(Some(&tight)),
+             );
+-
+-            Ok(())
+         }
++        Ok(())
+     }
+ 
+     fn create_context3d(
+@@ -1295,13 +1352,15 @@
+                 0,
+             );
+ 
+-            let sz = ((entry.width * entry.height) as usize) * 4;
++            let w = handle.bounds.width();
++            let h = handle.bounds.height();
++            let sz = w as usize * h as usize * 4;
+             let mut pixels: Vec<u8> = vec![0; sz]; // TODO uninitialized?
+             self.gl.read_pixels(
+                 handle.bounds.x_min as i32,
+                 handle.bounds.y_min as i32,
+-                handle.bounds.x_max as i32,
+-                handle.bounds.y_max as i32,
++                w as i32,
++                h as i32,
+                 glow::RGBA,
+                 glow::UNSIGNED_BYTE,
+                 PixelPackData::Slice(Some(&mut pixels)),
+@@ -1316,7 +1375,7 @@
+             );
+ 
+             self.gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+-            with_rgba(&pixels, entry.width * 4);
++            with_rgba(&pixels, w * 4);
+         }
+ 
+         Ok(())
+--- /dev/null
++++ b/src/net_navigator.rs
+@@ -0,0 +1,287 @@
++//! Whitelisted HTTP navigator: only hosts listed in FLASH_NETWORK_HOSTS may be
++//! fetched. Player futures keep running on the NullExecutor; only the blocking
++//! HTTP work happens on a worker thread, waking the future through a oneshot.
++
++use std::borrow::Cow;
++use std::collections::HashSet;
++use std::sync::mpsc::{self, Sender};
++use std::thread;
++
++use encoding_rs::Encoding;
++use futures::channel::oneshot;
++use indexmap::IndexMap;
++use ruffle_core::backend::navigator::{
++    ErrorResponse, NavigationMethod, NavigatorBackend, NullNavigatorBackend, OwnedFuture, Request,
++    SuccessResponse,
++};
++use ruffle_core::loader::Error as NavError;
++use ruffle_core::socket::{ConnectionState, SocketAction, SocketHandle};
++use url::{ParseError, Url};
++
++pub struct NetNavigator {
++    inner: NullNavigatorBackend,
++    allowed: HashSet<String>,
++    tx: Sender<Job>,
++}
++
++struct Job {
++    url: String,
++    method: String,
++    body: Option<(Vec<u8>, String)>,
++    reply: oneshot::Sender<Result<HttpResponse, String>>,
++}
++
++struct HttpResponse {
++    url: String,
++    status: u16,
++    bytes: Vec<u8>,
++    encoding: Option<&'static Encoding>,
++}
++
++impl SuccessResponse for HttpResponse {
++    fn url(&self) -> Cow<'_, str> {
++        Cow::Borrowed(&self.url)
++    }
++    fn body(self: Box<Self>) -> OwnedFuture<Vec<u8>, NavError> {
++        let bytes = self.bytes;
++        Box::pin(async move { Ok(bytes) })
++    }
++    fn text_encoding(&self) -> Option<&'static Encoding> {
++        self.encoding
++    }
++    fn status(&self) -> u16 {
++        self.status
++    }
++    fn redirected(&self) -> bool {
++        false
++    }
++    fn next_chunk(&mut self) -> OwnedFuture<Option<Vec<u8>>, NavError> {
++        let bytes = std::mem::take(&mut self.bytes);
++        Box::pin(async move { Ok(if bytes.is_empty() { None } else { Some(bytes) }) })
++    }
++    fn expected_length(&self) -> Result<Option<u64>, NavError> {
++        Ok(Some(self.bytes.len() as u64))
++    }
++}
++
++impl NetNavigator {
++    pub fn new(inner: NullNavigatorBackend) -> Self {
++        let allowed = std::env::var("FLASH_NETWORK_HOSTS")
++            .unwrap_or_default()
++            .split(',')
++            .map(|h| h.trim().to_ascii_lowercase())
++            .filter(|h| !h.is_empty())
++            .collect();
++        let (tx, rx) = mpsc::channel::<Job>();
++        thread::Builder::new()
++            .name("flash-http".into())
++            .spawn(move || {
++                while let Ok(job) = rx.recv() {
++                    let out = run_job(&job);
++                    let _ = job.reply.send(out);
++                }
++            })
++            .expect("spawn http worker");
++        Self { inner, allowed, tx }
++    }
++
++    pub fn allowed(&self) -> &HashSet<String> {
++        &self.allowed
++    }
++}
++
++fn run_job(job: &Job) -> Result<HttpResponse, String> {
++    let mut req = match job.method.as_str() {
++        "POST" => ureq::post(&job.url),
++        "PUT" => ureq::put(&job.url),
++        "DELETE" => ureq::delete(&job.url),
++        _ => ureq::get(&job.url),
++    };
++    let resp = match &job.body {
++        Some((data, mime)) => req.set("content-type", mime).send_bytes(data),
++        None => req.call(),
++    };
++    match resp {
++        Ok(r) => {
++            let status = r.status();
++            let final_url = r.get_url().to_string();
++            let encoding = r
++                .header("content-type")
++                .and_then(|ct| ct.split("charset=").nth(1))
++                .and_then(|cs| Encoding::for_label(cs.trim().as_bytes()));
++            let mut bytes = Vec::new();
++            use std::io::Read as _;
++            let mut reader = r.into_reader().take(64 * 1024 * 1024);
++            if let Err(e) = reader.read_to_end(&mut bytes) {
++                return Err(format!("read body: {e}"));
++            }
++            Ok(HttpResponse { url: final_url, status, bytes, encoding })
++        }
++        // ureq 2.x turns non-2xx into Error::Status; keep the body for the game.
++        Err(ureq::Error::Status(status, r)) => {
++            let final_url = r.get_url().to_string();
++            let mut bytes = Vec::new();
++            use std::io::Read as _;
++            let mut reader = r.into_reader().take(64 * 1024 * 1024);
++            let _ = reader.read_to_end(&mut bytes);
++            Ok(HttpResponse { url: final_url, status, bytes, encoding: None })
++        }
++        Err(e) => Err(format!("{e}")),
++    }
++}
++
++impl NavigatorBackend for NetNavigator {
++    fn navigate_to_url(
++        &self,
++        url: &str,
++        target: &str,
++        vars_method: Option<(NavigationMethod, IndexMap<String, String>)>,
++    ) {
++        self.inner.navigate_to_url(url, target, vars_method)
++    }
++
++    fn fetch(&self, request: Request) -> OwnedFuture<Box<dyn SuccessResponse>, ErrorResponse> {
++        let raw = request.url().to_string();
++        let url = match self.resolve_url(&raw) {
++            Ok(u) => u,
++            Err(e) => {
++                return Box::pin(async move {
++                    Err(ErrorResponse {
++                        url: raw,
++                        error: NavError::FetchError(format!("bad url: {e}").into()),
++                    })
++                })
++            }
++        };
++        let host = url.host_str().unwrap_or("").to_ascii_lowercase();
++        let remote = matches!(url.scheme(), "http" | "https");
++        if !remote || !self.allowed.contains(&host) {
++            // Local files and non-whitelisted hosts keep the old behaviour.
++            return self.inner.fetch(request);
++        }
++        let method = match request.method() {
++            NavigationMethod::Get => "GET",
++            NavigationMethod::Post => "POST",
++        };
++        let body = request.body().clone();
++        let (reply, wait) = oneshot::channel();
++        let job = Job { url: url.to_string(), method: method.to_string(), body, reply };
++        if self.tx.send(job).is_err() {
++            let shown = url.to_string();
++            return Box::pin(async move {
++                Err(ErrorResponse {
++                    url: shown,
++                    error: NavError::FetchError("http worker gone".into()),
++                })
++            });
++        }
++        let shown = url.to_string();
++        Box::pin(async move {
++            match wait.await {
++                Ok(Ok(resp)) => Ok(Box::new(resp) as Box<dyn SuccessResponse>),
++                Ok(Err(msg)) => Err(ErrorResponse {
++                    url: shown,
++                    error: NavError::FetchError(msg.into()),
++                }),
++                Err(_) => Err(ErrorResponse {
++                    url: shown,
++                    error: NavError::FetchError("http worker dropped".into()),
++                }),
++            }
++        })
++    }
++
++    fn resolve_url(&self, url: &str) -> Result<Url, ParseError> {
++        self.inner.resolve_url(url)
++    }
++
++    fn spawn_future(&mut self, future: OwnedFuture<(), NavError>) {
++        self.inner.spawn_future(future)
++    }
++
++    fn pre_process_url(&self, url: Url) -> Url {
++        self.inner.pre_process_url(url)
++    }
++
++    fn connect_socket(
++        &mut self,
++        host: String,
++        port: u16,
++        _timeout: std::time::Duration,
++        handle: SocketHandle,
++        _receiver: async_channel::Receiver<Vec<u8>>,
++        sender: async_channel::Sender<SocketAction>,
++    ) {
++        let _ = host;
++        let _ = port;
++        let _ = sender.try_send(SocketAction::Connect(handle, ConnectionState::Failed));
++    }
++}
++
++/// Either the plain navigator or the whitelisted one, chosen at startup.
++pub enum AnyNavigator {
++    Plain(NullNavigatorBackend),
++    Net(NetNavigator),
++}
++
++impl AnyNavigator {
++    pub fn new(inner: NullNavigatorBackend, hosts: &str) -> Self {
++        if hosts.trim().is_empty() {
++            Self::Plain(inner)
++        } else {
++            Self::Net(NetNavigator::new(inner))
++        }
++    }
++}
++
++impl NavigatorBackend for AnyNavigator {
++    fn navigate_to_url(
++        &self,
++        url: &str,
++        target: &str,
++        vars_method: Option<(NavigationMethod, IndexMap<String, String>)>,
++    ) {
++        match self {
++            Self::Plain(n) => n.navigate_to_url(url, target, vars_method),
++            Self::Net(n) => n.navigate_to_url(url, target, vars_method),
++        }
++    }
++    fn fetch(&self, request: Request) -> OwnedFuture<Box<dyn SuccessResponse>, ErrorResponse> {
++        match self {
++            Self::Plain(n) => n.fetch(request),
++            Self::Net(n) => n.fetch(request),
++        }
++    }
++    fn resolve_url(&self, url: &str) -> Result<Url, ParseError> {
++        match self {
++            Self::Plain(n) => n.resolve_url(url),
++            Self::Net(n) => n.resolve_url(url),
++        }
++    }
++    fn spawn_future(&mut self, future: OwnedFuture<(), NavError>) {
++        match self {
++            Self::Plain(n) => n.spawn_future(future),
++            Self::Net(n) => n.spawn_future(future),
++        }
++    }
++    fn pre_process_url(&self, url: Url) -> Url {
++        match self {
++            Self::Plain(n) => n.pre_process_url(url),
++            Self::Net(n) => n.pre_process_url(url),
++        }
++    }
++    fn connect_socket(
++        &mut self,
++        host: String,
++        port: u16,
++        timeout: std::time::Duration,
++        handle: SocketHandle,
++        receiver: async_channel::Receiver<Vec<u8>>,
++        sender: async_channel::Sender<SocketAction>,
++    ) {
++        match self {
++            Self::Plain(n) => n.connect_socket(host, port, timeout, handle, receiver, sender),
++            Self::Net(n) => n.connect_socket(host, port, timeout, handle, receiver, sender),
++        }
++    }
++}
