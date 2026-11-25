@@ -1,0 +1,47 @@
+diff --git a/core/src/display_object/graphic.rs b/core/src/display_object/graphic.rs
+index be263fbbb..a6911d495 100644
+--- a/core/src/display_object/graphic.rs
++++ b/core/src/display_object/graphic.rs
+@@ -144,7 +144,7 @@ impl<'gc> TDisplayObject<'gc> for Graphic<'gc> {
+     }
+ 
+     fn construct_frame(self, context: &mut UpdateContext<'gc>) {
+-        if self.movie().is_action_script_3() && self.object2().is_none() {
++        if self.object2().is_none() && self.0.shared.get().movie.is_action_script_3() {
+             let class_object = self
+                 .0
+                 .class
+diff --git a/core/src/display_object/movie_clip.rs b/core/src/display_object/movie_clip.rs
+index 767b1bb1c..354fd5051 100644
+--- a/core/src/display_object/movie_clip.rs
++++ b/core/src/display_object/movie_clip.rs
+@@ -2427,7 +2427,7 @@ impl<'gc> TDisplayObject<'gc> for MovieClip<'gc> {
+             return;
+         }
+ 
+-        if self.movie().is_action_script_3() {
++        if self.0.shared.get().swf.movie.is_action_script_3() {
+             let is_playing = self.playing();
+ 
+             if is_playing {
+@@ -2437,6 +2437,11 @@ impl<'gc> TDisplayObject<'gc> for MovieClip<'gc> {
+             // PlaceObject tags execute at this time.
+             // Note that this is NOT when constructors run; that happens later
+             // after tags have executed.
++            // Check after run_frame_internal: it can enqueue a placement this frame.
++            // Nothing below this point runs scripts unless a queued tag exists.
++            if self.0.queued_tags.borrow().is_empty() {
++                return;
++            }
+             let data = self.0.shared.get().swf.clone();
+             let place_actions = self.unqueue_filtered(|q| q.unqueue_add());
+ 
+@@ -2458,7 +2463,7 @@ impl<'gc> TDisplayObject<'gc> for MovieClip<'gc> {
+     fn construct_frame(self, context: &mut UpdateContext<'gc>) {
+         // AVM1 code expects to execute in line with timeline instructions, so
+         // it's exempted from frame construction.
+-        if self.movie().is_action_script_3()
++        if self.0.shared.get().swf.movie.is_action_script_3()
+             && (self.frames_loaded() >= 1 || self.header_frames() == 0)
+         {
+             let is_load_frame = !self.0.initialized();

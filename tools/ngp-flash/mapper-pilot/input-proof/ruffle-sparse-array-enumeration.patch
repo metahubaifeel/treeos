@@ -1,0 +1,52 @@
+--- a/core/src/avm2/activation.rs
++++ b/core/src/avm2/activation.rs
+@@ -2345,11 +2345,21 @@
+         Ok(())
+     }
+ 
++    // Array enumeration uses the occupied uint index + 1 as its cookie.
++    // A legal sparse entry above i32::MAX appears negative in the int iterator
++    // register. Accept only an actual occupied array slot in that case; keep
++    // the historical invalid-index behavior for other receivers.
++    fn live_high_array_cursor(value: Value<'gc>, index: i32) -> bool {
++        index < 0 && value.as_object().is_some_and(|o| {
++            o.as_array_storage().is_some_and(|a| a.get((index as u32 - 1) as usize).is_some())
++        })
++    }
++
+     fn op_has_next(&mut self) -> Result<(), Error<'gc>> {
+         let cur_index = self.pop_stack().coerce_to_i32(self)?;
+         let value = self.pop_stack();
+ 
+-        if cur_index < 0 {
++        if cur_index < 0 && !Self::live_high_array_cursor(value, cur_index) {
+             self.push_stack(0);
+ 
+             return Ok(());
+@@ -2378,7 +2388,7 @@
+     ) -> Result<(), Error<'gc>> {
+         let cur_index = self.local_register(index_register).coerce_to_i32(self)?;
+ 
+-        if cur_index < 0 {
++        if cur_index < 0 && !Self::live_high_array_cursor(self.local_register(object_register), cur_index) {
+             self.push_stack(false);
+ 
+             return Ok(());
+@@ -2429,7 +2439,7 @@
+         let cur_index = self.pop_stack().coerce_to_i32(self)?;
+         let value = self.pop_stack();
+ 
+-        if cur_index <= 0 {
++        if cur_index <= 0 && !Self::live_high_array_cursor(value, cur_index) {
+             self.push_stack(Value::Null);
+ 
+             return Ok(());
+@@ -2452,7 +2462,7 @@
+         let cur_index = self.pop_stack().coerce_to_i32(self)?;
+         let value = self.pop_stack();
+ 
+-        if cur_index <= 0 {
++        if cur_index <= 0 && !Self::live_high_array_cursor(value, cur_index) {
+             self.push_stack(Value::Undefined);
+ 
+             return Ok(());

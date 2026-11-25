@@ -1,0 +1,42 @@
+--- a/ruffle_render_glow/src/lib.rs
++++ b/ruffle_render_glow/src/lib.rs
+@@ -439,26 +439,25 @@
+                 .create_renderbuffer()
+                 .expect(&Error::UnableToCreateRenderBuffer.to_string());
+             gl.bind_renderbuffer(glow::RENDERBUFFER, Some(color_renderbuffer));
+-            gl.renderbuffer_storage_multisample(
+-                glow::RENDERBUFFER,
+-                self.msaa_sample_count as i32,
+-                glow::RGBA8,
+-                self.renderbuffer_width,
+-                self.renderbuffer_height,
+-            );
++            let allocate = |format| {
++                if self.msaa_sample_count <= 1 {
++                    // Mali-G52: requesting multisample storage with samples=1 for both
++                    // RGBA8 and STENCIL8 yields INCOMPLETE_MULTISAMPLE. Use the genuine
++                    // single-sample path, retaining the same stage-sized FBO and final fit.
++                    gl.renderbuffer_storage(glow::RENDERBUFFER, format, self.renderbuffer_width, self.renderbuffer_height);
++                } else {
++                    gl.renderbuffer_storage_multisample(glow::RENDERBUFFER, self.msaa_sample_count as i32,
++                        format, self.renderbuffer_width, self.renderbuffer_height);
++                }
++            };
++            allocate(glow::RGBA8);
+             //gl.check_error("renderbuffer_storage_multisample (color)")?;
+ 
+             let stencil_renderbuffer = gl
+                 .create_renderbuffer()
+                 .expect(&Error::UnableToCreateFrameBuffer.to_string());
+             gl.bind_renderbuffer(glow::RENDERBUFFER, Some(stencil_renderbuffer));
+-            gl.renderbuffer_storage_multisample(
+-                glow::RENDERBUFFER,
+-                self.msaa_sample_count as i32,
+-                glow::STENCIL_INDEX8,
+-                self.renderbuffer_width,
+-                self.renderbuffer_height,
+-            );
++            allocate(glow::STENCIL_INDEX8);
+             //gl.check_error("renderbuffer_storage_multisample (stencil)")?;
+ 
+             gl.bind_framebuffer(glow::FRAMEBUFFER, Some(render_framebuffer));

@@ -1,0 +1,63 @@
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -447,7 +447,19 @@
+     let context = Arc::new(unsafe {
+         glow::Context::from_loader_function(|s| sdl2_video.gl_get_proc_address(s) as *const _)
+     });
+-    let renderer = GlowRenderBackend::new(context, false, StageQuality::High).unwrap();
++    // Geometry and script-visible stage dimensions are independent of edge smoothing.
++    let quality = match std::env::var("FLASH_RENDER_QUALITY").as_deref() {
++        Ok("low") => StageQuality::Low, Ok("medium") => StageQuality::Medium,
++        _ => StageQuality::High,
++    };
++    let skip = std::env::var("FLASH_PRESENT_SKIP").as_deref() == Ok("1");
++    let profile = std::env::var("FLASH_PROFILE_TIMINGS").as_deref() == Ok("1");
++    let mut window_start = Instant::now();
++    let mut last_draw = window_start;
++    let mut last_draw_frame = None;
++    let mut window_frames = 0u64;
++    let (mut rendered, mut tick_us, mut draw_us, mut swap_us) = (0u64, 0u128, 0u128, 0u128);
++    let renderer = GlowRenderBackend::new(context, false, quality).unwrap();
+     let audio = SdlAudioBackend::new(sdl2_context.audio().unwrap()).unwrap();
+     let ui_backend = SdlUiBackend::new(Box::new(sdl2_window.clone()));
+ 
+@@ -796,10 +808,15 @@
+             last_frame_time = new_time;
+             if let Ok(mut player) = player.lock() {
+                 player.tick(dt as f64 / 1000.0);
+-                if player.needs_render() {
+-                    // Player viewport stays at the stage size; the panel size is
+-                    // handled by the renderer's letterbox rect.
+-                    player.set_viewport_dimensions(dimensions);
++                if profile { tick_us += new_time.elapsed().as_micros(); }
++                // Cap presentation only. Never halve the movie rate, dt, audio or input polling.
++                let now = Instant::now();
++                let frame = player.completed_frames();
++                // Count completed timeline frames, never poll iterations. Avoid an indefinitely
++                // stale last frame when a movie stops or is running below 10 logic frames/s.
++                if player.needs_render() && (!skip || last_draw_frame.is_none_or(|f| frame.wrapping_sub(f) >= 2)
++                        || now.duration_since(last_draw).as_millis() >= 100) {
++                    last_draw_frame = Some(frame); last_draw = now;
+                     player.render();
+                     // Optional one-shot frame dump for diagnosing what the panel
+                     // really gets, without any host-side screenshot.
+@@ -837,8 +854,19 @@
+                             }
+                         }
+                     }
++                    if profile { draw_us += now.elapsed().as_micros(); }
++                    let swap_start = Instant::now();
+                     sdl2_window.gl_swap_window();
++                    if profile { swap_us += swap_start.elapsed().as_micros(); rendered += 1; }
+                 }
++                if profile && window_start.elapsed().as_secs() >= 5 {
++                    let elapsed = window_start.elapsed().as_secs_f64();
++                    eprintln!("perf target={:.1} logic/s={:.1} presents/s={:.1} tick_ms/s={:.1} draw_ms/s={:.1} swap_ms/s={:.1}",player.frame_rate(),frame.wrapping_sub(window_frames) as f64/elapsed,rendered as f64/elapsed,tick_us as f64/1000.0/elapsed,draw_us as f64/1000.0/elapsed,swap_us as f64/1000.0/elapsed);
++                    window_start=Instant::now(); window_frames=frame; rendered=0; tick_us=0; draw_us=0; swap_us=0;
++                }
++                // Sleep only within the available frame/timer budget (tick sampled at new_time).
++                let idle = player.time_til_next_frame().saturating_sub(new_time.elapsed());
++                if idle.as_millis() >= 1 { std::thread::sleep(idle.min(std::time::Duration::from_millis(2))); }
+             }
+         }
+     }
