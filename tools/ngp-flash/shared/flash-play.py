@@ -95,7 +95,8 @@ def network_runtime(movie):
 def runtime_for(movie, config=None, baseline=RUNTIME):
     """Choose a title-specific renderer by movie bytes, never by display name."""
     for table, runtime in (('classic-display-titles.json', 'runtime-classic-display'),
-                           ('sparse-array-titles.json', 'runtime-sparse-array')):
+                           ('sparse-array-titles.json', 'runtime-sparse-array'),
+                           ('difference-titles.json', 'runtime-bitmap-difference')):
         path = HERE / table
         if path.is_file():
             pins = json.loads(path.read_text()).get(str(movie.stat().st_size), [])
@@ -208,6 +209,10 @@ def main(args):
                 env = prepare(plan, Path(temp), bin_dir / 'compile-face-profile.py')
                 for key in ('FLASH_RENDER_QUALITY', 'FLASH_PRESENT_SKIP', 'FLASH_PROFILE_TIMINGS'):
                     env.pop(key, None)
+                if bin_dir.name == 'runtime-bitmap-difference':
+                    # Only this memory-heavy multifile title; keep the allocator
+                    # settings used in the isolated combat run local to its worker.
+                    env.update(MALLOC_ARENA_MAX='2', MALLOC_TRIM_THRESHOLD_='131072')
                 video = video_options(state, bin_dir)
                 if video:
                     env.update(video)
